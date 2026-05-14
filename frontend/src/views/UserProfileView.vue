@@ -182,34 +182,34 @@ function onTabChange(tab) {
 .profile-page {
   max-width: 960px;
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--spacing-lg);
 }
 
 .profile-header {
-  background: var(--color-bg-card);
+  background: var(--color-surface);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  margin-bottom: 24px;
+  box-shadow: var(--shadow-card);
+  margin-bottom: var(--spacing-lg);
 }
 
 .profile-cover {
   height: 120px;
-  background: linear-gradient(135deg, #2c1810 0%, #4a2c17 50%, #6b3a2a 100%);
+  background: linear-gradient(135deg, var(--color-header-bg) 0%, #1a3a5c 50%, #2c1810 100%);
 }
 
 .profile-info {
   display: flex;
   align-items: flex-start;
   gap: 20px;
-  padding: 0 24px 24px;
+  padding: 0 var(--spacing-lg) var(--spacing-lg);
   margin-top: -40px;
   position: relative;
 }
 
 .profile-avatar {
-  border: 4px solid white;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  border: 4px solid var(--color-surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .profile-text {
@@ -220,21 +220,21 @@ function onTabChange(tab) {
 .nickname {
   font-size: 22px;
   font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 4px;
+  color: var(--color-text-main);
+  margin-bottom: var(--spacing-xs);
 }
 
 .username {
   font-size: 14px;
   color: var(--color-text-muted);
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .bio {
   font-size: 14px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-sub);
   font-style: italic;
-  line-height: 1.6;
+  line-height: var(--line-height-body);
 }
 
 .edit-btn {
@@ -242,17 +242,17 @@ function onTabChange(tab) {
 }
 
 .profile-tabs {
-  background: var(--color-bg-card);
+  background: var(--color-surface);
   border-radius: var(--radius-lg);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  padding: 8px 24px 24px;
+  box-shadow: var(--shadow-card);
+  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-lg);
   min-height: 400px;
 }
 
 .tab-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
+  gap: var(--spacing-md);
 }
 @media (max-width: 768px) { .tab-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 480px) { .tab-grid { grid-template-columns: 1fr; } }
@@ -271,8 +271,8 @@ function onTabChange(tab) {
 .card-stats {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: var(--spacing-xs);
+  font-size: var(--font-size-caption);
 }
 .card-stats .el-icon { font-size: 13px; }
 </style>

@@ -37,6 +37,8 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // Actuator 健康检查 + Prometheus 指标（内网监控用）
+                .requestMatchers("/actuator/**").permitAll()
                 // 公开端点
                 .requestMatchers("/api/v1/auth/**").permitAll()
                 .requestMatchers("/assets/**").permitAll()

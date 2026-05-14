@@ -149,52 +149,52 @@ async function changePassword() {
 .settings-page {
   max-width: 680px;
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--spacing-lg);
 }
 
 .page-title {
-  font-size: 24px;
+  font-size: var(--font-size-title);
   font-weight: 700;
-  color: var(--color-text-primary);
-  margin-bottom: 24px;
+  color: var(--color-text-main);
+  margin-bottom: var(--spacing-lg);
   letter-spacing: 2px;
 }
 
 .settings-card {
-  margin-bottom: 20px;
+  margin-bottom: var(--spacing-lg);
   border-radius: var(--radius-lg);
-  border: 1px solid rgba(0,0,0,0.04);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .card-header-text {
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-text-primary);
+  color: var(--color-text-main);
 }
 
 .settings-form {
   max-width: 480px;
 }
 
-.notif-options { padding: 4px 0; }
+.notif-options { padding: var(--spacing-xs) 0; }
 
 .notif-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 0;
+  padding: var(--spacing-sm) 0;
 }
 
 .notif-label {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--spacing-xs);
 }
 
 .notif-title {
   font-size: 15px;
   font-weight: 500;
-  color: var(--color-text-primary);
+  color: var(--color-text-main);
 }
 
 .notif-desc {
@@ -206,8 +206,8 @@ async function changePassword() {
   font-size: 13px;
   color: var(--color-text-muted);
   font-style: italic;
-  margin-top: 16px;
-  padding-top: 12px;
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-sm);
   border-top: 1px dashed #e0e0e0;
 }
 </style>

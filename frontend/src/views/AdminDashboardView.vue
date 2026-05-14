@@ -156,42 +156,42 @@ async function confirmReject(postId) {
 .admin-page {
   max-width: 960px;
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--spacing-lg);
 }
 
 .admin-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: var(--spacing-lg);
 }
 
 .page-title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 24px;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-title);
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--color-text-main);
   letter-spacing: 2px;
 }
 
 .audit-list {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--spacing-md);
 }
 
 .audit-card {
   display: flex;
-  background: var(--color-bg-card);
+  background: var(--color-surface);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  transition: box-shadow 0.3s;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition-normal);
 }
 .audit-card:hover {
-  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  box-shadow: var(--shadow-card-hover);
 }
 
 .audit-card-cover {
@@ -217,7 +217,7 @@ async function confirmReject(postId) {
 
 .audit-card-body {
   flex: 1;
-  padding: 16px 20px;
+  padding: var(--spacing-md) var(--spacing-lg);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -226,52 +226,52 @@ async function confirmReject(postId) {
 .post-title {
   font-size: 17px;
   font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 8px;
+  color: var(--color-text-main);
+  margin-bottom: var(--spacing-sm);
 }
 
 .post-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-bottom: 4px;
+  color: var(--color-text-sub);
+  margin-bottom: var(--spacing-xs);
 }
 
 .post-time { color: var(--color-text-muted); }
 
 .post-stats {
   display: flex;
-  gap: 16px;
+  gap: var(--spacing-md);
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-sub);
 }
 
 .audit-actions {
   display: flex;
-  gap: 12px;
-  margin-top: 12px;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-sm);
 }
 
 .reject-area {
-  margin-top: 12px;
+  margin-top: var(--spacing-sm);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .reject-input { max-width: 360px; }
 
 .reject-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  padding: 24px 0;
+  padding: var(--spacing-lg) 0;
 }
 
 @media (max-width: 640px) {

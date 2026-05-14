@@ -1,137 +1,231 @@
-/* ===== 智观·古建 — 中国传统色彩体系 ===== */
+/* ===== 智观·古建 — 中国传统建筑色彩体系 (Design Tokens) ===== */
 :root {
-  /* 主色调 — 朱红（生命力与文化传承） */
-  --color-primary: #d73c37;
-  --color-primary-light: #e85d58;
-  --color-primary-dark: #b8322e;
+  /* ═══ 核心文化色彩 ═══ */
+  /* 祥瑞红 — 核心CTA按钮、选中导航下划线、重要文化标签 */
+  --color-primary: #B8261F;
+  --color-primary-light: #d43d35;
+  --color-primary-dark: #9a1f19;
 
-  /* 点缀色 — 杏黄（皇家与尊贵） */
-  --color-accent: #dfbc5e;
-  --color-accent-light: #e8cf80;
-  --color-accent-dark: #c4a34a;
+  /* 琉璃金 — VIP标识、AI分析高亮边框、3D模型加载进度条 */
+  --color-secondary: #B58E36;
+  --color-secondary-light: #d4a94a;
+  --color-secondary-dark: #8f6e28;
 
-  /* 语义色 — 碧绿（解析成功/结构标注） */
-  --color-success: #2D9B5C;
-  --color-success-light: #3db870;
+  /* 碧玉青 — VGGT解析成功提示、验证徽章、生态数据图表 */
+  --color-accent-jade: #2D9B5C;
+  --color-accent-jade-light: #3db870;
 
-  /* 背景色 — 灰白（四合院青砖灰瓦） */
-  --color-bg-base: #f5f5f5;
-  --color-bg-card: #ffffff;
+  /* 苍黛蓝 — 深度图分析网格、三维点云包围盒渲染色 */
+  --color-accent-indigo: #002CA2;
+  --color-accent-indigo-light: #1a4fc7;
+
+  /* ═══ 背景与表面 ═══ */
+  /* 缟素白 — 全局底层背景 */
+  --color-bg-base: #F5F5F5;
+  /* 铅华白 — 卡片背景、弹窗背景、输入框底色 */
+  --color-surface: #FFFFFF;
+  /* 素绢 — 次级背景，用于hover态或分隔区域 */
   --color-bg-subtle: #e8e4df;
 
-  /* 文字色 */
-  --color-text-primary: #2c2c2c;
-  --color-text-secondary: #6b6b6b;
+  /* ═══ 文字色 ═══ */
+  /* 黎黑 — 文章正文、卡片主标题、输入框文字 */
+  --color-text-main: #313133;
+  /* 瓦灰 — 发布时间戳、用户昵称、Placeholder */
+  --color-text-sub: #8A838A;
+  /* 淡墨 — 更轻的辅助文字 */
   --color-text-muted: #999999;
 
-  /* 字体 */
-  --font-family-base: 'Noto Sans TC', 'Source Han Sans', 'Microsoft YaHei', sans-serif;
+  /* ═══ 深色/沉浸模式 ═══ */
+  /* 苍穹黑 — 导航栏背景 */
+  --color-header-bg: #001529;
+  --color-header-text: #d4c5a9;
 
-  /* 圆角 */
+  /* ═══ 4pt 间距系统 (Spacing Scale) ═══ */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 64px;
+
+  /* ═══ 排版 ═══ */
+  /* 中文跨平台字体栈：macOS优先苹方/冬青黑体，Windows回退微软雅黑 */
+  --font-family-base: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-size-body: 14px;
+  --font-size-title: 24px;
+  --font-size-subtitle: 20px;
+  --font-size-caption: 12px;
+  --line-height-body: 1.8;
+  --line-height-heading: 1.4;
+
+  /* ═══ 圆角 ═══ */
   --radius-sm: 4px;
   --radius-md: 8px;
-  --radius-lg: 16px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-full: 24px;
+
+  /* ═══ 阴影层级 ═══ */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-panel: 0 4px 16px rgba(0, 0, 0, 0.10);
+  --shadow-modal: 0 8px 40px rgba(0, 0, 0, 0.16);
+
+  /* ═══ 过渡 ═══ */
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s ease;
 }
 
-* {
+/* ===== 全局重置 ===== */
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
 }
 
-body {
-  font-family: var(--font-family-base);
-  background-color: var(--color-bg-base);
-  color: var(--color-text-primary);
+html {
+  font-size: var(--font-size-body);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ===== 瀑布流容器 ===== */
-.waterfall-grid {
-  column-count: 4;
-  column-gap: 16px;
-  padding: 16px;
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  background-color: var(--color-bg-base);
+  color: var(--color-text-main);
+}
+
+/* ===== CSS Grid 瀑布流架构 ===== */
+.architecture-feed-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-auto-rows: 10px;
+  gap: 0 var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+.architecture-feed-container > .feed-card {
+  grid-row-end: span 35; /* 默认350px卡片，由JS动态覆盖 */
 }
 
 @media (max-width: 1200px) {
-  .waterfall-grid { column-count: 3; }
-}
-@media (max-width: 768px) {
-  .waterfall-grid { column-count: 2; }
-}
-@media (max-width: 480px) {
-  .waterfall-grid { column-count: 1; }
+  .architecture-feed-container {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
 }
 
-/* ===== 卡片效果 ===== */
+@media (max-width: 768px) {
+  .architecture-feed-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0 var(--spacing-sm);
+    padding: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .architecture-feed-container {
+    grid-template-columns: 1fr;
+    padding: var(--spacing-sm);
+  }
+}
+
+/* ===== 社区内容卡片 (Post Card) — 像素级构造 ===== */
 .feed-card {
-  break-inside: avoid;
-  margin-bottom: 16px;
   border-radius: var(--radius-md);
   overflow: hidden;
-  background: var(--color-bg-card);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-card);
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
   cursor: pointer;
 }
 
 .feed-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+  box-shadow: var(--shadow-card-hover);
 }
 
-.feed-card img {
+/* 卡片顶部图像 — 上圆角贴合容器 */
+.feed-card > img,
+.feed-card .card-cover {
   width: 100%;
   display: block;
+  object-fit: cover;
 }
 
+/* 卡片信息内衬 */
 .feed-card .card-body {
-  padding: 12px 16px;
+  padding: 12px;
 }
 
+/* 标题: 最多两行 + 省略号 */
 .feed-card .card-title {
   font-size: 15px;
   font-weight: 600;
-  color: var(--color-text-primary);
-  margin-bottom: 8px;
+  color: var(--color-text-main);
+  margin-bottom: var(--spacing-sm);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
+/* 社交互动底栏 */
 .feed-card .card-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-sub);
+  margin-bottom: var(--spacing-sm);
 }
 
+.feed-card .author {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+/* 点赞/评论按钮 */
 .feed-card .card-actions {
   display: flex;
-  gap: 16px;
+  gap: var(--spacing-md);
   align-items: center;
 }
 
 .feed-card .card-actions .action-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--spacing-xs);
   font-size: 13px;
-  color: var(--color-text-secondary);
+  color: var(--color-text-sub);
   cursor: pointer;
   border: none;
   background: none;
-  transition: color 0.2s;
+  transition: color var(--transition-fast);
 }
 
 .feed-card .card-actions .action-btn:hover {
   color: var(--color-primary);
 }
 
+/* 点赞激活态 — 祥瑞红填满 + 微动画 */
 .feed-card .card-actions .action-btn.liked {
   color: var(--color-primary);
+}
+
+@keyframes like-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+.action-btn.liked .el-icon {
+  animation: like-pop 0.2s ease;
 }
 
 /* ===== 数字锦盒 Modal 动画 ===== */
@@ -142,59 +236,249 @@ body {
 }
 
 @keyframes brocade-glow {
-  0%, 100% { box-shadow: 0 0 20px var(--color-accent); }
-  50% { box-shadow: 0 0 60px var(--color-accent), 0 0 80px rgba(223,188,94,0.5); }
+  0%, 100% { box-shadow: 0 0 20px var(--color-secondary); }
+  50% { box-shadow: 0 0 60px var(--color-secondary), 0 0 80px rgba(181, 142, 54, 0.5); }
 }
 
 .brocade-modal .el-dialog {
   background: linear-gradient(135deg, #2c1810 0%, #4a2c17 50%, #1a0f08 100%);
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius-lg);
+  border: 2px solid var(--color-secondary);
+  border-radius: var(--radius-xl);
   animation: brocade-open 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
   animation-fill-mode: both;
 }
 
 .brocade-modal .el-dialog__header {
-  border-bottom: 1px solid rgba(223,188,94,0.3);
+  border-bottom: 1px solid rgba(181, 142, 54, 0.3);
 }
 
 .brocade-modal .el-dialog__title {
-  color: var(--color-accent);
+  color: var(--color-secondary);
   font-size: 18px;
 }
 
 .brocade-modal .el-dialog__body {
   color: #d4c5a9;
   text-align: center;
-  padding: 32px;
+  padding: var(--spacing-xl);
 }
 
-/* ===== 幻筑 Loading 动画 ===== */
+/* ===== 幻筑 Loading — 宝塔构建动画 ===== */
 .dream-loading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: var(--spacing-md);
   padding: 40px;
+}
+
+.dream-loading .loading-text {
+  font-size: 16px;
+  color: var(--color-text-sub);
+}
+
+.dream-loading .loading-sub {
+  font-size: 14px;
+  color: var(--color-text-muted);
 }
 
 .dream-loading .ink-stroke {
   width: 120px;
   height: 4px;
-  background: linear-gradient(90deg, transparent, var(--color-accent), transparent);
+  background: linear-gradient(90deg, transparent, var(--color-secondary), transparent);
   animation: ink-flow 1.5s ease-in-out infinite;
 }
 
 @keyframes ink-flow {
   0% { opacity: 0.3; transform: scaleX(0.5); }
-  50% { opacity: 1; transform: scaleX(1); }
+  50% { opacity: 0.5; transform: scaleX(1); }
   100% { opacity: 0.3; transform: scaleX(0.5); }
 }
 
-/* ===== Vue 过渡 ===== */
-.fade-enter-active, .fade-leave-active {
+/* 古塔线框构建动画 */
+.pagoda-building {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.pagoda-layer {
+  width: 0;
+  height: 2px;
+  background: var(--color-secondary);
+  border-radius: 1px;
+  animation: layer-expand 0.6s ease forwards;
+}
+
+.pagoda-layer:nth-child(1) { animation-delay: 0.1s; }
+.pagoda-layer:nth-child(2) { animation-delay: 0.3s; }
+.pagoda-layer:nth-child(3) { animation-delay: 0.5s; }
+.pagoda-layer:nth-child(4) { animation-delay: 0.7s; }
+.pagoda-layer:nth-child(5) { animation-delay: 0.9s; }
+.pagoda-layer:nth-child(6) { animation-delay: 1.1s; }
+
+@keyframes layer-expand {
+  from { width: 0; opacity: 0; }
+  to { width: 80px; opacity: 1; }
+}
+
+/* ===== 智能提示标签 (Smart Prompt Chips) ===== */
+.prompt-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: 6px 14px;
+  border: 1px solid #EAEAEA;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  background: var(--color-surface);
+  color: var(--color-text-main);
+  user-select: none;
+}
+
+.prompt-chip:hover {
+  border-color: var(--color-secondary);
+  background: rgba(181, 142, 54, 0.08);
+  color: var(--color-secondary-dark);
+}
+
+.prompt-chip:active {
+  transform: scale(0.96);
+}
+
+/* ===== 玻璃态控制面板 (Glassmorphism) ===== */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-panel);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-lg);
+}
+
+/* ===== 虚线拖拽上传区 ===== */
+.dashed-upload-zone {
+  border: 2px dashed var(--color-secondary);
+  border-radius: var(--radius-lg);
+  padding: 48px var(--spacing-lg);
+  text-align: center;
+  background: rgba(181, 142, 54, 0.04);
+  transition: all var(--transition-normal);
+  cursor: pointer;
+}
+
+.dashed-upload-zone:hover {
+  border-color: var(--color-secondary-light);
+  background: rgba(181, 142, 54, 0.08);
+}
+
+.dashed-upload-zone .upload-icon {
+  font-size: 48px;
+  color: var(--color-secondary);
+  margin-bottom: var(--spacing-md);
+}
+
+.dashed-upload-zone .upload-text {
+  font-size: 15px;
+  color: var(--color-text-sub);
+}
+
+.dashed-upload-zone .upload-hint {
+  font-size: var(--font-size-caption);
+  color: var(--color-text-muted);
+  margin-top: var(--spacing-sm);
+}
+
+/* ===== 毛玻璃提示框 (Rate-Limit Alert) ===== */
+.cultural-alert {
+  background: rgba(181, 142, 54, 0.08);
+  border: 1px solid rgba(181, 142, 54, 0.2);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-md);
+  color: var(--color-secondary-dark);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+/* ===== Vue 路由过渡 ===== */
+.fade-enter-active,
+.fade-leave-active {
   transition: opacity 0.3s ease;
 }
-.fade-enter-from, .fade-leave-to {
+.fade-enter-from,
+.fade-leave-to {
   opacity: 0;
+}
+
+/* ===== Element Plus 全局覆盖 ===== */
+/* 主按钮使用祥瑞红 */
+.el-button--primary {
+  --el-button-bg-color: var(--color-primary);
+  --el-button-border-color: var(--color-primary);
+  --el-button-hover-bg-color: var(--color-primary-light);
+  --el-button-hover-border-color: var(--color-primary-light);
+  --el-button-active-bg-color: var(--color-primary-dark);
+  --el-button-active-border-color: var(--color-primary-dark);
+}
+
+/* 分页激活色 */
+.el-pagination.is-background .el-pager li.is-active {
+  background-color: var(--color-primary);
+}
+
+/* 链接色 */
+.el-link.el-link--primary {
+  --el-link-text-color: var(--color-primary);
+}
+
+/* Tag 成功色用碧玉青 */
+.el-tag--success {
+  --el-tag-bg-color: rgba(45, 155, 92, 0.1);
+  --el-tag-border-color: rgba(45, 155, 92, 0.2);
+  --el-tag-text-color: var(--color-accent-jade);
+}
+
+/* 幽灵按钮 — 用于预留功能的禁用态 */
+.ghost-btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  border: 1px dashed var(--color-text-muted);
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 8px 20px;
+  border-radius: var(--radius-full);
+  font-size: 13px;
+  pointer-events: none;
+}
+
+/* ===== 通用布局辅助 ===== */
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--spacing-lg);
+}
+
+.page-header-center {
+  text-align: center;
+  padding: 40px 0 var(--spacing-lg);
+}
+
+.page-header-center h1 {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-title);
+  font-weight: 700;
+  color: var(--color-text-main);
+  margin-bottom: var(--spacing-sm);
+}
+
+.page-header-center p {
+  color: var(--color-text-sub);
+  font-size: 15px;
+  line-height: var(--line-height-body);
 }

@@ -87,57 +87,59 @@ async function markAllRead() {
 .notification-page {
   max-width: 700px;
   margin: 0 auto;
-  padding: 24px;
+  padding: var(--spacing-lg);
 }
 
 .page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: var(--spacing-lg);
 }
 
 .page-header h1 {
-  font-size: 24px;
+  font-size: var(--font-size-title);
   font-weight: 700;
+  color: var(--color-text-main);
 }
 
 .notification-list {
-  background: white;
+  background: var(--color-surface);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  box-shadow: var(--shadow-card);
 }
 
 .notification-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 20px;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-md) var(--spacing-lg);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background var(--transition-fast);
   border-bottom: 1px solid #f0f0f0;
 }
 
 .notification-item:last-child { border-bottom: none; }
 .notification-item:hover { background: #fafafa; }
-.notification-item.unread { background: rgba(215,60,55,0.03); }
+.notification-item.unread { background: rgba(184, 38, 31, 0.03); }
 
 .notif-body { flex: 1; }
 
 .notif-message {
   font-size: 14px;
-  color: var(--color-text-primary);
-  margin-bottom: 4px;
+  color: var(--color-text-main);
+  margin-bottom: var(--spacing-xs);
 }
 
 .notif-time {
-  font-size: 12px;
+  font-size: var(--font-size-caption);
   color: var(--color-text-muted);
 }
 
 .notif-dot {
-  width: 8px;
-  height: 8px;
+  width: var(--spacing-sm);
+  height: var(--spacing-sm);
   background: var(--color-primary);
   border-radius: 50%;
   flex-shrink: 0;

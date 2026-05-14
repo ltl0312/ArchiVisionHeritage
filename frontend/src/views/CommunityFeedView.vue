@@ -16,12 +16,17 @@
       </div>
     </div>
 
-    <!-- 帖子瀑布流 -->
-    <div class="waterfall-grid" v-loading="loading">
+    <!-- 帖子瀑布流 — CSS Grid 动态高度 -->
+    <div
+      ref="feedContainerRef"
+      class="architecture-feed-container"
+      v-loading="loading"
+    >
       <div
         v-for="post in posts"
         :key="post.postId"
         class="feed-card"
+        :ref="el => setCardRef(post.postId, el)"
         @click="$router.push(`/post/${post.postId}`)"
       >
         <el-image
@@ -52,7 +57,7 @@
             <span class="time">{{ post.createdAt }}</span>
           </div>
           <div class="card-actions">
-            <button class="action-btn" :class="{ liked: false }" @click.stop>
+            <button class="action-btn" :class="{ liked: post.likedByMe }" @click.stop="handleLike(post)">
               <el-icon><StarFilled /></el-icon> {{ post.likeCount }}
             </button>
             <button class="action-btn" @click.stop>
@@ -122,7 +127,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick, watch } from 'vue'
 import { PictureFilled, StarFilled, ChatDotRound, MagicStick, UserFilled, Edit, Promotion } from '@element-plus/icons-vue'
 import { communityApi } from '@/api/community'
 import { useUserStore } from '@/stores/user'
@@ -135,6 +140,27 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(12)
 const total = ref(0)
+const feedContainerRef = ref(null)
+const cardRefs = {}
+
+function setCardRef(id, el) {
+  if (el) cardRefs[id] = el
+}
+
+/** 根据卡片实际高度动态计算 grid-row-end */
+function calcCardSpans() {
+  nextTick(() => {
+    posts.value.forEach(post => {
+      const el = cardRefs[post.postId]
+      if (!el) return
+      const height = el.offsetHeight
+      const rows = Math.ceil(height / 10)
+      el.style.gridRowEnd = `span ${rows}`
+    })
+  })
+}
+
+watch(posts, () => calcCardSpans())
 
 // ===== 发帖 =====
 const showPublishDialog = ref(false)
@@ -168,15 +194,22 @@ async function handlePublish() {
     await communityApi.createPost(payload)
     ElMessage.success('动态已提交，待管理员审核通过后公开展示')
     showPublishDialog.value = false
-    // 重置表单
     postForm.title = ''
     postForm.content = ''
     postForm.modelAssetId = ''
-    // 刷新列表
     await fetchPosts()
   } finally {
     publishing.value = false
   }
+}
+
+/** 在瀑布流中直接点赞 */
+async function handleLike(post) {
+  try {
+    await communityApi.toggleLike({ targetId: post.postId, targetType: 'POST' })
+    post.likedByMe = !post.likedByMe
+    post.likeCount += post.likedByMe ? 1 : -1
+  } catch { /* ignore */ }
 }
 
 onMounted(() => fetchPosts())
@@ -187,52 +220,55 @@ async function fetchPosts() {
     const res = await communityApi.getPosts(currentPage.value, pageSize.value)
     posts.value = res.data.records || []
     total.value = res.data.total || 0
-  } catch { /* 拦截器已处理 */ }
-  finally { loading.value = false }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
 <style scoped>
+/* 文化横幅 — 大面积留白，禅意克制 */
 .culture-banner {
   text-align: center;
-  padding: 48px 24px 32px;
-  background: linear-gradient(180deg, rgba(44,24,16,0.03) 0%, transparent 100%);
+  padding: 48px var(--spacing-lg) var(--spacing-xl);
+  background: linear-gradient(180deg, rgba(0, 21, 41, 0.03) 0%, transparent 100%);
 }
 
 .banner-title {
-  font-size: 28px;
+  font-size: var(--font-size-title);
   font-weight: 700;
-  color: var(--color-text-primary);
+  color: var(--color-text-main);
   letter-spacing: 4px;
-  margin-bottom: 8px;
+  margin-bottom: var(--spacing-sm);
 }
 
 .banner-sub {
   font-size: 15px;
-  color: var(--color-text-secondary);
-  margin-bottom: 24px;
+  color: var(--color-text-sub);
+  margin-bottom: var(--spacing-lg);
+  line-height: var(--line-height-body);
 }
 
 .banner-actions {
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: var(--spacing-md);
   flex-wrap: wrap;
 }
 
 .btn-publish {
-  border-color: var(--color-accent);
-  color: var(--color-accent);
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
 }
 .btn-publish:hover {
-  background: rgba(223,188,94,0.1);
-  border-color: var(--color-accent);
+  background: rgba(181, 142, 54, 0.1);
+  border-color: var(--color-secondary);
 }
 
 .form-tip {
-  font-size: 12px;
+  font-size: var(--font-size-caption);
   color: var(--color-text-muted);
-  margin-top: 4px;
+  margin-top: var(--spacing-xs);
 }
 
 .card-cover {
@@ -249,19 +285,13 @@ async function fetchPosts() {
   min-height: 180px;
   background: var(--color-bg-subtle);
   color: var(--color-text-muted);
-  gap: 8px;
+  gap: var(--spacing-sm);
   font-size: 14px;
-}
-
-.author {
-  display: flex;
-  align-items: center;
-  gap: 6px;
 }
 
 .pagination-wrapper {
   display: flex;
   justify-content: center;
-  padding: 24px;
+  padding: var(--spacing-lg) 0;
 }
 </style>

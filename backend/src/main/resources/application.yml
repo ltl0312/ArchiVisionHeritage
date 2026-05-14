@@ -1,5 +1,11 @@
 server:
   port: 8080
+  tomcat:
+    threads:
+      max: 200           # 生产级工作线程池上限
+      min-spare: 20      # 最小空闲线程保底
+    max-connections: 10000  # 最大连接数（高并发护城河）
+    accept-count: 200    # 连接队列溢出缓冲
 
 spring:
   datasource:
@@ -7,6 +13,17 @@ spring:
     username: root
     password: a82711045
     driver-class-name: com.mysql.cj.jdbc.Driver
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 4
 
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
@@ -33,3 +50,20 @@ zhiguan:
   assets:
     local-path: ./assets
     url-prefix: /assets
+
+# Actuator 健康指标 + Prometheus 监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+      base-path: /actuator
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: zhiguan-gujian
+  endpoint:
+    health:
+      show-details: always

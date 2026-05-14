@@ -12,6 +12,7 @@ release-new/
 # *.py
 _pycache__/
 *.pyc
+.bat
 
 # ========== 环境 & 日志 ==========
 .env.local

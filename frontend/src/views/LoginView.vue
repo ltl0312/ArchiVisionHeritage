@@ -98,11 +98,11 @@ async function handleRegister() {
 }
 
 .login-card {
-  width: 400px;
+  width: 420px;
   padding: 40px;
-  background: white;
-  border-radius: var(--radius-lg);
-  box-shadow: 0 8px 40px rgba(0,0,0,0.1);
+  background: var(--color-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-modal);
 }
 
 .login-title {
@@ -111,14 +111,15 @@ async function handleRegister() {
   font-weight: 700;
   color: var(--color-primary);
   letter-spacing: 4px;
-  margin-bottom: 4px;
+  margin-bottom: var(--spacing-xs);
 }
 
 .login-subtitle {
   text-align: center;
   color: var(--color-text-muted);
-  margin-bottom: 24px;
+  margin-bottom: var(--spacing-lg);
   font-size: 14px;
+  line-height: var(--line-height-body);
 }
 
 .login-tabs :deep(.el-tabs__nav-wrap::after) {

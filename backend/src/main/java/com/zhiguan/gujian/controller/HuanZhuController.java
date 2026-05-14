@@ -10,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -22,14 +23,23 @@ public class HuanZhuController {
 
     private final TaskOrchestrationService taskOrchestrationService;
 
-    /** 提交幻筑任务，立即返回 HTTP 202 + taskId */
+    /**
+     * 提交幻筑任务 — 含 Redis 幂等守护
+     * 重复提交相同 Prompt 时返回已有 taskId + duplicate=true，避免双重扣费
+     */
     @PostMapping("/huanzhu")
     @ResponseStatus(HttpStatus.ACCEPTED)
     public Result<Map<String, Object>> submitHuanZhu(@Valid @RequestBody HuanZhuRequest request,
                                                      Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        Long taskId = taskOrchestrationService.submitHuanZhuTask(userId, request.getPrompt());
-        return Result.ok(Map.of("taskId", taskId, "status", "PENDING"));
+        TaskOrchestrationService.SubmitResult result =
+                taskOrchestrationService.submitHuanZhuTask(userId, request.getPrompt());
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("taskId", result.taskId());
+        data.put("status", "PENDING");
+        data.put("duplicate", result.duplicate());
+        return Result.ok(data);
     }
 
     /** 轮询任务状态 */

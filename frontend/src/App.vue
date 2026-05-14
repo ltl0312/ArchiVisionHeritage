@@ -141,13 +141,15 @@ function handleCommand(cmd) {
 <style scoped>
 .app-shell { min-height: 100vh; }
 
+/* 苍穹黑深色导航栏 — height: 64px 遵循4pt系统 */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 24px;
-  background: linear-gradient(135deg, #2c1810 0%, #4a2c17 100%);
-  border-bottom: 1px solid rgba(223,188,94,0.2);
+  padding: 0 var(--spacing-xxl);
+  height: var(--spacing-xxl);
+  background: var(--color-header-bg);
+  border-bottom: 1px solid rgba(181, 142, 54, 0.15);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -156,61 +158,127 @@ function handleCommand(cmd) {
 .header-left .logo-link {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   text-decoration: none;
-  color: var(--color-accent);
+  color: var(--color-secondary);
 }
 
-.logo-icon { font-size: 24px; }
+.logo-icon {
+  font-size: 24px;
+  color: var(--color-secondary);
+}
 
 .logo-text {
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 2px;
+  color: var(--color-secondary);
 }
 
+/* 导航菜单项 — 间距遵循spacing-xl (32px) */
 .header-nav {
   display: flex;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 8px 16px;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--radius-md);
   text-decoration: none;
-  color: #d4c5a9;
+  color: var(--color-header-text);
   font-size: 14px;
-  transition: all 0.3s;
+  transition: all var(--transition-normal);
+  position: relative;
 }
 
-.nav-item:hover { background: rgba(223,188,94,0.15); color: var(--color-accent); }
-.nav-item.active { background: rgba(223,188,94,0.2); color: var(--color-accent); }
+.nav-item:hover {
+  background: rgba(181, 142, 54, 0.12);
+  color: var(--color-secondary);
+}
+
+.nav-item.active {
+  background: rgba(181, 142, 54, 0.16);
+  color: var(--color-secondary);
+}
+
+/* 选中态底部下划线 */
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: var(--spacing-md);
+  right: var(--spacing-md);
+  height: 2px;
+  background: var(--color-primary);
+  border-radius: 1px;
+}
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--spacing-md);
 }
 
 .notif-badge :deep(.el-badge__content) {
   background-color: var(--color-primary);
 }
 
+/* 通知铃铛按钮 */
+.header-right .el-button.is-circle {
+  color: var(--color-header-text);
+  background: transparent;
+  border: 1px solid rgba(212, 197, 169, 0.2);
+}
+
+.header-right .el-button.is-circle:hover {
+  background: rgba(181, 142, 54, 0.12);
+  border-color: var(--color-secondary);
+  color: var(--color-secondary);
+}
+
 .user-info {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
   cursor: pointer;
-  color: #d4c5a9;
+  color: var(--color-header-text);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: var(--radius-md);
+  transition: background var(--transition-fast);
+}
+
+.user-info:hover {
+  background: rgba(181, 142, 54, 0.08);
 }
 
 .username { font-size: 14px; }
 
+/* 登录按钮 */
+.header-right > .el-button--primary {
+  --el-button-bg-color: var(--color-primary);
+  --el-button-border-color: var(--color-primary);
+}
+
 .app-main {
   padding: 0;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - var(--spacing-xxl));
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .app-header {
+    padding: 0 var(--spacing-md);
+  }
+
+  .header-nav .nav-item span {
+    display: none;
+  }
+
+  .header-nav .nav-item {
+    padding: var(--spacing-sm);
+  }
 }
 </style>
