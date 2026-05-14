@@ -30,6 +30,7 @@ _pycache__/
 .vscode/*.code-workspace
 .vscode/state.*
 .claude/
+prompt/
 
 # ========== 按需调整（建议取消全局忽略） ==========
 # *.sql  -> 改为忽略特定备份，如: backup_*.sql

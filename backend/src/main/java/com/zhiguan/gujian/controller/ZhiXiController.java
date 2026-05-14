@@ -5,36 +5,82 @@ import com.zhiguan.gujian.config.Result;
 import com.zhiguan.gujian.mapper.AnalysisDemoMapper;
 import com.zhiguan.gujian.model.AnalysisDemo;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.*;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 /**
- * 古建智析 VGGT — 结构分析（当前为离线演示模式）
+ * 古建智析 VGGT — 结构分析
+ * 将图片转发至 Python VGGT API (FastAPI :8000) 进行真实结构推断
  */
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/analysis")
 @RequiredArgsConstructor
 public class ZhiXiController {
 
+    private final RestTemplate restTemplate;
     private final AnalysisDemoMapper analysisDemoMapper;
 
-    /** VGGT 结构分析 — 包含每日5次限制防刷 */
+    /** Python VGGT API 地址 */
+    private static final String VGGT_API_URL = "http://127.0.0.1:8000/v1/analyze";
+
+    /**
+     * VGGT 结构分析 — 转发图片至 Python 端进行真实解析
+     * 保留每日5次防刷限制
+     */
     @PostMapping("/zhixi")
     @RateLimit(maxCalls = 5)
-    public Result<AnalysisDemo> analyze(@RequestParam("image") MultipartFile image) {
-        // 当前返回离线演示数据
-        List<AnalysisDemo> demos = analysisDemoMapper.selectList(null);
-        AnalysisDemo demo = demos.isEmpty() ? null : demos.get(0);
-        if (demo == null) {
-            return Result.fail(404, "暂无演示数据");
+    public Result<Map<String, Object>> analyze(@RequestParam("image") MultipartFile image) {
+        try {
+            // 将 MultipartFile 封装为 RestTemplate 可发送的 multipart/form-data
+            ByteArrayResource fileResource = new ByteArrayResource(image.getBytes()) {
+                @Override
+                public String getFilename() {
+                    return image.getOriginalFilename();
+                }
+            };
+
+            MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+            body.add("image", fileResource);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+            HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
+
+            // 调用 Python VGGT API 进行结构分析
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    VGGT_API_URL,
+                    HttpMethod.POST,
+                    requestEntity,
+                    Map.class
+            );
+
+            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> result = (Map<String, Object>) response.getBody();
+                return Result.ok(result);
+            } else {
+                return Result.fail(502, "VGGT 分析服务暂时不可用");
+            }
+
+        } catch (Exception e) {
+            log.error("调用 VGGT API 失败", e);
+            // Python 服务未启动或网络不通时的降级提示
+            return Result.fail(503, "VGGT 深度解析引擎未就绪，请确认 Python 服务已启动 (端口 8000)");
         }
-        return Result.ok(demo);
     }
 
-    /** 获取智析演示数据列表 */
+    /** 获取智析演示数据列表（V1.0 过渡保留） */
     @GetMapping("/zhixi/demos")
     public Result<List<AnalysisDemo>> listDemos() {
         return Result.ok(analysisDemoMapper.selectList(null));
