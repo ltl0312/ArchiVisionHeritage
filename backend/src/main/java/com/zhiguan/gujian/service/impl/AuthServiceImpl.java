@@ -29,7 +29,9 @@ public class AuthServiceImpl implements AuthService {
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new CulturalApiException(401, "用户名或密码错误");
         }
-        return jwtUtil.generateToken(user.getId(), user.getUsername());
+        // JWT 中携带 role，供 Security 过滤器提取权限
+        String role = user.getRole() != null ? user.getRole() : "USER";
+        return jwtUtil.generateToken(user.getId(), user.getUsername(), role);
     }
 
     @Override
@@ -43,6 +45,7 @@ public class AuthServiceImpl implements AuthService {
         user.setUsername(request.getUsername());
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setNickname(request.getNickname());
+        user.setRole("USER");  // 新注册用户默认为普通用户
         userMapper.insert(user);
     }
 }

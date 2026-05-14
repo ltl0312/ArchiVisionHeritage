@@ -21,6 +21,9 @@ public class User {
 
     private String bio;
 
+    /** RBAC 角色：USER（普通用户） / ADMIN（管理员） */
+    private String role;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

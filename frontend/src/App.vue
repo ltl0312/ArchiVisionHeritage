@@ -40,7 +40,18 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="notifications">通知中心</el-dropdown-item>
+                <el-dropdown-item command="profile">
+                  <el-icon><User /></el-icon> 个人中心
+                </el-dropdown-item>
+                <el-dropdown-item command="settings">
+                  <el-icon><Setting /></el-icon> 设置
+                </el-dropdown-item>
+                <el-dropdown-item v-if="userStore.isAdmin" command="admin" divided>
+                  <el-icon><Monitor /></el-icon> 审核工作台
+                </el-dropdown-item>
+                <el-dropdown-item command="notifications">
+                  <el-icon><Bell /></el-icon> 通知中心
+                </el-dropdown-item>
                 <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
@@ -86,7 +97,7 @@
 <script setup>
 import { onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { HomeFilled, MagicStick, Search, Bell, UserFilled } from '@element-plus/icons-vue'
+import { HomeFilled, MagicStick, Search, Bell, UserFilled, User, Setting, Monitor } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { useNotificationStore } from '@/stores/notification'
 
@@ -115,6 +126,12 @@ function openBrocadeAsset() {
 function handleCommand(cmd) {
   if (cmd === 'logout') {
     userStore.logout()
+  } else if (cmd === 'profile') {
+    router.push('/profile')
+  } else if (cmd === 'settings') {
+    router.push('/settings')
+  } else if (cmd === 'admin') {
+    router.push('/admin')
   } else if (cmd === 'notifications') {
     router.push('/notifications')
   }

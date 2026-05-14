@@ -21,13 +21,18 @@ request.interceptors.response.use(
   response => {
     const res = response.data
     if (res.code !== 200) {
-      ElMessage.error(res.msg || '请求失败')
-      return Promise.reject(new Error(res.msg))
+      // 业务异常：Result.code !== 200
+      const msg = res.message || res.msg || '请求失败'
+      ElMessage.error(msg)
+      return Promise.reject(new Error(msg))
     }
-    return res   // 直接返回 { code, msg, data }
+    return res   // 直接返回 { code, message, data }
   },
   error => {
-    ElMessage.error(error.message || '网络错误')
+    // HTTP 异常（401/403/429/500等）— 优先提取后端返回的 message
+    const serverMsg = error.response?.data?.message
+    const msg = serverMsg || error.message || '网络错误'
+    ElMessage.error(msg)
     return Promise.reject(error)
   }
 )

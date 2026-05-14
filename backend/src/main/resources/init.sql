@@ -2,7 +2,7 @@ CREATE DATABASE IF NOT EXISTS `zhiguan_gujian`
     DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `zhiguan_gujian`;
 
--- 1. 用户表 (User)
+-- 1. 用户表 (User) — V1.2 增加 role 字段支持 RBAC
 CREATE TABLE `user` (
                         `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                         `username` VARCHAR(64) NOT NULL UNIQUE COMMENT '用户名',
@@ -10,6 +10,7 @@ CREATE TABLE `user` (
                         `nickname` VARCHAR(64) NOT NULL COMMENT '用户昵称',
                         `avatar_url` VARCHAR(512) DEFAULT NULL COMMENT '头像路径',
                         `bio` VARCHAR(255) DEFAULT NULL COMMENT '个人文化签名',
+                        `role` VARCHAR(16) NOT NULL DEFAULT 'USER' COMMENT '角色：USER(普通用户) / ADMIN(管理员)',
                         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户基本信息与授权状态';
@@ -50,16 +51,19 @@ CREATE TABLE `model_asset` (
                                FOREIGN KEY (`task_id`) REFERENCES `ai_task`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI生成的数字资产路径';
 
--- 5. 社区动态表 (Post)
+-- 5. 社区动态表 (Post) — V1.2 增加 status / reject_reason 支持内容审核
 CREATE TABLE `post` (
                         `id` BIGINT AUTO_INCREMENT PRIMARY KEY,
                         `user_id` BIGINT NOT NULL,
                         `model_asset_id` BIGINT DEFAULT NULL COMMENT '关联的古建3D资产',
                         `title` VARCHAR(128) NOT NULL COMMENT '动态标题',
                         `content` TEXT COMMENT '文化内涵与文字描述',
+                        `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '审核状态：PENDING(待审核) / APPROVED(已发布) / REJECTED(已驳回)',
+                        `reject_reason` VARCHAR(255) DEFAULT NULL COMMENT '驳回原因',
                         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         KEY `idx_created_at` (`created_at`),
+                        KEY `idx_status` (`status`),
                         FOREIGN KEY (`user_id`) REFERENCES `user`(`id`) ON DELETE CASCADE,
                         FOREIGN KEY (`model_asset_id`) REFERENCES `model_asset`(`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='古建文化社区图文动态';
@@ -107,6 +111,35 @@ CREATE TABLE `analysis_demo` (
                                  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='存储VGGT古建结构解析的演示数据';
 
+
+-- ===================== V1.0 → V1.2 数据迁移 (已有数据库升级用) =====================
+-- 以下 ALTER 语句用于将 V1.0 数据库升级至 V1.2
+-- 如为新库初始化，上方 CREATE TABLE 已包含对应字段，可忽略以下语句
+-- 如执行报错(字段已存在)，可安全忽略
+
+-- User 表增加 role 字段
+ALTER TABLE `user` ADD COLUMN `role` VARCHAR(16) NOT NULL DEFAULT 'USER'
+    COMMENT '角色：USER(普通用户) / ADMIN(管理员)'
+    AFTER `bio`;
+
+-- Post 表增加审核状态与驳回原因字段
+ALTER TABLE `post` ADD COLUMN `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING'
+    COMMENT '审核状态：PENDING(待审核) / APPROVED(已发布) / REJECTED(已驳回)'
+    AFTER `content`;
+
+ALTER TABLE `post` ADD COLUMN `reject_reason` VARCHAR(255) DEFAULT NULL
+    COMMENT '驳回原因'
+    AFTER `status`;
+
+ALTER TABLE `post` ADD INDEX `idx_status` (`status`);
+
+-- 初始化管理员账号（密码 "admin123"，BCrypt 加密密文）
+INSERT IGNORE INTO `user` (`username`, `password_hash`, `nickname`, `role`)
+VALUES ('admin', '$2b$12$CEWyJAgaE7kjNj.WJqnp8uaSeV79e5G13vjev9D7Gxsx9MHh2bRTm', '古建守门人', 'ADMIN');
+
+
+-- ===================== 初始化演示数据 =====================
+
 -- 初始化 VGGT 斗栱解析的模拟数据 (Mock JSON)
 INSERT INTO `analysis_demo` (`title`, `mock_json_data`) VALUES (
                                                                    '唐代斗栱结构解析 (VGGT 演示)',
@@ -121,4 +154,3 @@ INSERT INTO `analysis_demo` (`title`, `mock_json_data`) VALUES (
                                                                      ]
                                                                    }'
                                                                );
-

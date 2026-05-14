@@ -12,6 +12,7 @@ import java.util.List;
 
 public interface CommunityService {
 
+    /** 获取帖子流 — 仅展示 APPROVED 状态的帖子 */
     Page<PostBriefResponse> getPostFeed(int page, int size);
 
     PostDetailResponse getPostDetail(Long postId, Long currentUserId);
@@ -31,4 +32,16 @@ public interface CommunityService {
     int getFollowerCount(Long userId);
 
     int getFollowingCount(Long userId);
+
+    /** 管理员审核帖子：status = APPROVED 或 REJECTED */
+    void auditPost(Long postId, String status, String rejectReason);
+
+    /** 管理员获取待审核帖子列表 (status = PENDING) */
+    Page<PostBriefResponse> getPendingPosts(int page, int size);
+
+    /** 获取用户发布的所有帖子 */
+    Page<PostBriefResponse> getUserPosts(Long userId, int page, int size);
+
+    /** 获取用户点赞过的帖子 */
+    Page<PostBriefResponse> getUserLikedPosts(Long userId, int page, int size);
 }

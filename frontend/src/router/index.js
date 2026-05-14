@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useUserStore } from '@/stores/user'
 
 const routes = [
   {
@@ -41,6 +42,24 @@ const routes = [
     component: () => import('@/views/NotificationListView.vue'),
     meta: { title: '通知中心', requiresAuth: true }
   },
+  {
+    path: '/profile',
+    name: 'UserProfile',
+    component: () => import('@/views/UserProfileView.vue'),
+    meta: { title: '个人中心', requiresAuth: true }
+  },
+  {
+    path: '/settings',
+    name: 'Settings',
+    component: () => import('@/views/SettingsView.vue'),
+    meta: { title: '设置', requiresAuth: true }
+  },
+  {
+    path: '/admin',
+    name: 'AdminDashboard',
+    component: () => import('@/views/AdminDashboardView.vue'),
+    meta: { title: '审核工作台', requiresAuth: true, requiresAdmin: true }
+  }
 ]
 
 const router = createRouter({
@@ -49,15 +68,28 @@ const router = createRouter({
   scrollBehavior: () => ({ top: 0 })
 })
 
-// 路由守卫 — 未登录跳转登录页
 router.beforeEach((to, from, next) => {
   document.title = to.meta.title || '智观·古建'
   const token = localStorage.getItem('token')
+
+  // 需要登录的页面
   if (to.meta.requiresAuth && !token) {
-    next('/login')
-  } else {
-    next()
+    return next('/login')
   }
+
+  // 需要管理员权限的页面 — 前端路由守卫
+  if (to.meta.requiresAdmin) {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      if (payload.role !== 'ADMIN') {
+        return next('/home')
+      }
+    } catch {
+      return next('/login')
+    }
+  }
+
+  next()
 })
 
 export default router

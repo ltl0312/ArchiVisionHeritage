@@ -4,10 +4,16 @@
     <div class="culture-banner">
       <h2 class="banner-title">以技术为舟，载文化远航</h2>
       <p class="banner-sub">每一块瓦当、每一组斗栱，在数字世界里重获新生</p>
-      <el-button type="primary" size="large" @click="$router.push('/huanzhu')">
-        <el-icon><MagicStick /></el-icon>
-        一键幻筑，创造你的古建
-      </el-button>
+      <div class="banner-actions">
+        <el-button type="primary" size="large" @click="$router.push('/huanzhu')">
+          <el-icon><MagicStick /></el-icon>
+          一键幻筑，创造你的古建
+        </el-button>
+        <el-button v-if="userStore.isLoggedIn" size="large" class="btn-publish" @click="showPublishDialog = true">
+          <el-icon><Edit /></el-icon>
+          发布古建动态
+        </el-button>
+      </div>
     </div>
 
     <!-- 帖子瀑布流 -->
@@ -62,6 +68,45 @@
       <el-button type="primary" @click="$router.push('/huanzhu')">一键幻筑</el-button>
     </el-empty>
 
+    <!-- 发帖弹窗 -->
+    <el-dialog
+      v-model="showPublishDialog"
+      title="发布古建动态"
+      width="600px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <el-form :model="postForm" :rules="postRules" ref="postFormRef" label-position="top">
+        <el-form-item label="标题" prop="title">
+          <el-input v-model="postForm.title" placeholder="给你的古建作品起个名字..." maxlength="128" show-word-limit />
+        </el-form-item>
+
+        <el-form-item label="文化描述" prop="content">
+          <el-input
+            v-model="postForm.content"
+            type="textarea"
+            :rows="5"
+            placeholder="分享你的古建知识、创作心得或文化见解..."
+            maxlength="2048"
+            show-word-limit
+          />
+        </el-form-item>
+
+        <el-form-item label="关联3D模型 (可选)">
+          <el-input v-model="postForm.modelAssetId" placeholder="填入幻筑生成的模型资产ID" />
+          <div class="form-tip">一键幻筑成功后可在「数字锦盒」中查看资产ID</div>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="showPublishDialog = false">取 消</el-button>
+        <el-button type="primary" :loading="publishing" @click="handlePublish">
+          <el-icon><Promotion /></el-icon>
+          发布动态
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- 分页 -->
     <div class="pagination-wrapper" v-if="total > pageSize">
       <el-pagination
@@ -77,15 +122,62 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { PictureFilled, StarFilled, ChatDotRound, MagicStick, UserFilled } from '@element-plus/icons-vue'
+import { ref, reactive, onMounted } from 'vue'
+import { PictureFilled, StarFilled, ChatDotRound, MagicStick, UserFilled, Edit, Promotion } from '@element-plus/icons-vue'
 import { communityApi } from '@/api/community'
+import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
+
+const userStore = useUserStore()
 
 const posts = ref([])
 const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(12)
 const total = ref(0)
+
+// ===== 发帖 =====
+const showPublishDialog = ref(false)
+const publishing = ref(false)
+const postFormRef = ref(null)
+
+const postForm = reactive({
+  title: '',
+  content: '',
+  modelAssetId: ''
+})
+
+const postRules = {
+  title: [
+    { required: true, message: '请输入标题', trigger: 'blur' },
+    { min: 2, max: 128, message: '标题长度 2-128 字符', trigger: 'blur' }
+  ]
+}
+
+async function handlePublish() {
+  const valid = await postFormRef.value.validate().catch(() => false)
+  if (!valid) return
+
+  publishing.value = true
+  try {
+    const payload = {
+      title: postForm.title.trim(),
+      content: postForm.content.trim(),
+      modelAssetId: postForm.modelAssetId ? Number(postForm.modelAssetId) : null
+    }
+    await communityApi.createPost(payload)
+    ElMessage.success('动态已提交，待管理员审核通过后公开展示')
+    showPublishDialog.value = false
+    // 重置表单
+    postForm.title = ''
+    postForm.content = ''
+    postForm.modelAssetId = ''
+    // 刷新列表
+    await fetchPosts()
+  } finally {
+    publishing.value = false
+  }
+}
 
 onMounted(() => fetchPosts())
 
@@ -119,6 +211,28 @@ async function fetchPosts() {
   font-size: 15px;
   color: var(--color-text-secondary);
   margin-bottom: 24px;
+}
+
+.banner-actions {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.btn-publish {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+.btn-publish:hover {
+  background: rgba(223,188,94,0.1);
+  border-color: var(--color-accent);
+}
+
+.form-tip {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-top: 4px;
 }
 
 .card-cover {

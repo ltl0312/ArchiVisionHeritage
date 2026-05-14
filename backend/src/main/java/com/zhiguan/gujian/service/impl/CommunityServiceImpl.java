@@ -33,44 +33,19 @@ public class CommunityServiceImpl implements CommunityService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
+    /**
+     * 获取帖子流 — 仅展示审核通过的帖子 (status = APPROVED)
+     * 首页瀑布流按创建时间倒序，实现内容分发展示
+     */
     @Override
     public Page<PostBriefResponse> getPostFeed(int page, int size) {
         Page<Post> postPage = new Page<>(page, size);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                .eq(Post::getStatus, "APPROVED")  // 仅展示已审核通过的帖子
                 .orderByDesc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
 
-        Page<PostBriefResponse> responsePage = new Page<>(page, size, result.getTotal());
-        responsePage.setRecords(result.getRecords().stream().map(post -> {
-            User author = userMapper.selectById(post.getUserId());
-            String preview2dPath = null;
-            if (post.getModelAssetId() != null) {
-                ModelAsset asset = modelAssetMapper.selectById(post.getModelAssetId());
-                if (asset != null) preview2dPath = asset.getPreview2dPath();
-            }
-
-            int likeCount = likeRecordMapper.selectCount(
-                    new LambdaQueryWrapper<LikeRecord>()
-                            .eq(LikeRecord::getTargetId, post.getId())
-                            .eq(LikeRecord::getTargetType, "POST")).intValue();
-
-            int commentCount = commentMapper.selectCount(
-                    new LambdaQueryWrapper<Comment>()
-                            .eq(Comment::getPostId, post.getId())).intValue();
-
-            return PostBriefResponse.builder()
-                    .postId(post.getId())
-                    .title(post.getTitle())
-                    .preview2dPath(preview2dPath)
-                    .authorNickname(author != null ? author.getNickname() : "未知")
-                    .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
-                    .likeCount(likeCount)
-                    .commentCount(commentCount)
-                    .createdAt(post.getCreatedAt() != null ? post.getCreatedAt().format(FMT) : "")
-                    .build();
-        }).collect(Collectors.toList()));
-
-        return responsePage;
+        return buildPostBriefPage(result, page, size);
     }
 
     @Override
@@ -116,6 +91,10 @@ public class CommunityServiceImpl implements CommunityService {
                 .build();
     }
 
+    /**
+     * 用户发帖 — 状态默认为 PENDING（待管理员审核）
+     * 审核通过后才能在社区信息流中展示
+     */
     @Override
     @Transactional
     public void createPost(Long userId, CreatePostRequest request) {
@@ -124,6 +103,7 @@ public class CommunityServiceImpl implements CommunityService {
         post.setTitle(request.getTitle());
         post.setContent(request.getContent());
         post.setModelAssetId(request.getModelAssetId());
+        post.setStatus("PENDING");  // 默认待审核，需管理员审核后方可展示
         postMapper.insert(post);
     }
 
@@ -174,6 +154,11 @@ public class CommunityServiceImpl implements CommunityService {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * 点赞/取消点赞 — 防抖逻辑：
+     * 同一用户对同一目标的重复请求自动切换（有则删除/无则新增），
+     * 利用数据库 UNIQUE KEY (user_id, target_id, target_type) 防止重复写入。
+     */
     @Override
     @Transactional
     public void toggleLike(Long userId, LikeRequest request) {
@@ -235,5 +220,125 @@ public class CommunityServiceImpl implements CommunityService {
         return followRecordMapper.selectCount(
                 new LambdaQueryWrapper<FollowRecord>()
                         .eq(FollowRecord::getFollowerId, userId)).intValue();
+    }
+
+    // ======================== 管理员审核 ========================
+
+    /**
+     * 管理员审核帖子 — 将帖子状态更新为 APPROVED 或 REJECTED
+     * 仅 REJECTED 时记录驳回原因，APPROVED 后帖子出现在社区信息流
+     */
+    @Override
+    @Transactional
+    public void auditPost(Long postId, String status, String rejectReason) {
+        Post post = postMapper.selectById(postId);
+        if (post == null) throw new CulturalApiException(404, "帖子不存在");
+
+        post.setStatus(status);
+        if ("REJECTED".equals(status)) {
+            post.setRejectReason(rejectReason != null ? rejectReason : "内容不符合社区规范");
+        } else {
+            post.setRejectReason(null);
+        }
+        postMapper.updateById(post);
+    }
+
+    /**
+     * 管理员获取待审核帖子列表 (status = PENDING)
+     */
+    @Override
+    public Page<PostBriefResponse> getPendingPosts(int page, int size) {
+        Page<Post> postPage = new Page<>(page, size);
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                .eq(Post::getStatus, "PENDING")
+                .orderByAsc(Post::getCreatedAt);
+        Page<Post> result = postMapper.selectPage(postPage, wrapper);
+
+        return buildPostBriefPage(result, page, size);
+    }
+
+    /**
+     * 获取用户发布的所有帖子（含各审核状态）
+     */
+    @Override
+    public Page<PostBriefResponse> getUserPosts(Long userId, int page, int size) {
+        Page<Post> postPage = new Page<>(page, size);
+        LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
+                .eq(Post::getUserId, userId)
+                .orderByDesc(Post::getCreatedAt);
+        Page<Post> result = postMapper.selectPage(postPage, wrapper);
+
+        return buildPostBriefPage(result, page, size);
+    }
+
+    /**
+     * 获取用户点赞过的帖子 (通过 like_record 表反向查询)
+     */
+    @Override
+    public Page<PostBriefResponse> getUserLikedPosts(Long userId, int page, int size) {
+        // 先查用户点赞的所有 POST 类型记录
+        List<LikeRecord> likes = likeRecordMapper.selectList(
+                new LambdaQueryWrapper<LikeRecord>()
+                        .eq(LikeRecord::getUserId, userId)
+                        .eq(LikeRecord::getTargetType, "POST")
+                        .orderByDesc(LikeRecord::getCreatedAt));
+
+        List<Long> likedPostIds = likes.stream()
+                .map(LikeRecord::getTargetId)
+                .collect(Collectors.toList());
+
+        Page<PostBriefResponse> emptyPage = new Page<>(page, size, likedPostIds.size());
+        if (likedPostIds.isEmpty()) return emptyPage;
+
+        // 分页截取
+        int fromIndex = (page - 1) * size;
+        int toIndex = Math.min(fromIndex + size, likedPostIds.size());
+        if (fromIndex >= likedPostIds.size()) return emptyPage;
+
+        List<Long> pageIds = likedPostIds.subList(fromIndex, toIndex);
+        List<Post> posts = postMapper.selectBatchIds(pageIds);
+
+        List<PostBriefResponse> records = posts.stream().map(this::toBriefResponse).collect(Collectors.toList());
+        emptyPage.setRecords(records);
+        return emptyPage;
+    }
+
+    // ======================== 内部工具方法 ========================
+
+    private Page<PostBriefResponse> buildPostBriefPage(Page<Post> postPage, int page, int size) {
+        Page<PostBriefResponse> responsePage = new Page<>(page, size, postPage.getTotal());
+        responsePage.setRecords(postPage.getRecords().stream()
+                .map(this::toBriefResponse)
+                .collect(Collectors.toList()));
+        return responsePage;
+    }
+
+    private PostBriefResponse toBriefResponse(Post post) {
+        User author = userMapper.selectById(post.getUserId());
+        String preview2dPath = null;
+        if (post.getModelAssetId() != null) {
+            ModelAsset asset = modelAssetMapper.selectById(post.getModelAssetId());
+            if (asset != null) preview2dPath = asset.getPreview2dPath();
+        }
+
+        int likeCount = likeRecordMapper.selectCount(
+                new LambdaQueryWrapper<LikeRecord>()
+                        .eq(LikeRecord::getTargetId, post.getId())
+                        .eq(LikeRecord::getTargetType, "POST")).intValue();
+
+        int commentCount = commentMapper.selectCount(
+                new LambdaQueryWrapper<Comment>()
+                        .eq(Comment::getPostId, post.getId())).intValue();
+
+        return PostBriefResponse.builder()
+                .postId(post.getId())
+                .title(post.getTitle())
+                .preview2dPath(preview2dPath)
+                .authorNickname(author != null ? author.getNickname() : "未知")
+                .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
+                .likeCount(likeCount)
+                .commentCount(commentCount)
+                .createdAt(post.getCreatedAt() != null ? post.getCreatedAt().format(FMT) : "")
+                .build();
     }
 }

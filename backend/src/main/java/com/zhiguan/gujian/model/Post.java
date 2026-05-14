@@ -19,6 +19,12 @@ public class Post {
 
     private String content;
 
+    /** 审核状态：PENDING（待审核）/ APPROVED（已发布）/ REJECTED（已驳回） */
+    private String status;
+
+    /** 驳回原因（仅 REJECTED 时有值） */
+    private String rejectReason;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createdAt;
 

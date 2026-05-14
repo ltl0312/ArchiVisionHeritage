@@ -16,10 +16,12 @@ public class JwtUtil {
 
     private final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
 
-    public String generateToken(Long userId, String username) {
+    /** 签发 JWT — 将 userId、username、role 写入载荷 */
+    public String generateToken(Long userId, String username, String role) {
         return Jwts.builder()
                 .subject(userId.toString())
                 .claim("username", username)
+                .claim("role", role)
                 .issuedAt(new Date())
                 .expiration(new Date(System.currentTimeMillis() + EXPIRATION))
                 .signWith(key)
@@ -34,6 +36,12 @@ public class JwtUtil {
     public String getUsernameFromToken(String token) {
         Claims claims = parseToken(token);
         return claims.get("username", String.class);
+    }
+
+    /** 从 Token 中提取用户角色，用于 Spring Security 权限校验 */
+    public String getRoleFromToken(String token) {
+        Claims claims = parseToken(token);
+        return claims.get("role", String.class);
     }
 
     public boolean validateToken(String token) {
