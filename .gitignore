@@ -1,0 +1,36 @@
+# ========== 依赖 & 构建产物 ==========
+node_modules/
+dist/
+target/
+*.class
+release-build/
+release-new/
+*.asar
+*.tar.gz
+
+#========== 脚本===========
+# *.py
+_pycache__/
+*.pyc
+
+# ========== 环境 & 日志 ==========
+.env.local
+*.log
+
+# ========== 压缩包 & 临时文件 ==========
+*.zip
+*.tar.*
+
+# ========== IDE 配置（团队协作友好） ==========
+# .idea/
+# .vscode/
+# 仅忽略个人状态/缓存，保留团队共享设置
+.idea/workspace.xml
+.idea/shelf/
+.vscode/*.code-workspace
+.vscode/state.*
+.claude/
+
+# ========== 按需调整（建议取消全局忽略） ==========
+# *.sql  -> 改为忽略特定备份，如: backup_*.sql
+# deploy/ -> 部署脚本/配置通常需提交，仅忽略敏感文件
