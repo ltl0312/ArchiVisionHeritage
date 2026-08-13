@@ -46,10 +46,12 @@ public class IdempotentLockService {
         String lockKey = KEY_PREFIX + ":" + userId + ":" + promptHash;
         String taskIdKey = lockKey + ":taskId";
 
+        // 注意：脚本参数经 GenericJackson2JsonRedisSerializer 序列化，
+        // 传数字（不带引号）Lua 端 tonumber(ARGV[1]) 才能正确解析
         Long result = redisTemplate.execute(
                 idempotentLockScript,
                 List.of(lockKey, taskIdKey),
-                String.valueOf(LOCK_TTL.getSeconds())
+                LOCK_TTL.getSeconds()
         );
 
         boolean allowed = result != null && result == 1L;

@@ -49,11 +49,13 @@ public class RateLimitAspect {
                 LocalDate.now().plusDays(1).atStartOfDay()
         );
 
+        // 注意：脚本参数经 GenericJackson2JsonRedisSerializer 序列化，
+        // 传数字（不带引号）Lua 端 tonumber(ARGV) 才能正确解析
         Long allowed = redisTemplate.execute(
                 rateLimitScript,
                 List.of(key),
-                String.valueOf(rateLimit.maxCalls()),
-                String.valueOf(ttlSeconds)
+                rateLimit.maxCalls(),
+                ttlSeconds
         );
 
         if (allowed == null || allowed == 0L) {
