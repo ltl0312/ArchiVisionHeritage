@@ -1,7 +1,8 @@
 package com.zhiguan.gujian.analysis.interfaces;
 
+import com.zhiguan.gujian.analysis.application.AnalysisService;
+import com.zhiguan.gujian.shared.common.CulturalApiException;
 import com.zhiguan.gujian.shared.common.GlobalExceptionHandler;
-import com.zhiguan.gujian.analysis.infrastructure.AnalysisDemoMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,20 +10,15 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -30,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * ZhiXiController 单元测试 — VGGT 分析接口
+ * ZhiXiController 单元测试 — 薄控制器（转发 AnalysisService，RestTemplate 桩测试已下沉 AnalysisServiceTest）
  */
 @ExtendWith(MockitoExtension.class)
 @DisplayName("VGGT 分析控制器测试")
@@ -42,10 +38,7 @@ class ZhiXiControllerTest {
     private ZhiXiController zhiXiController;
 
     @Mock
-    private RestTemplate restTemplate;
-
-    @Mock
-    private AnalysisDemoMapper analysisDemoMapper;
+    private AnalysisService analysisService;
 
     @BeforeEach
     void setUp() {
@@ -61,9 +54,7 @@ class ZhiXiControllerTest {
         mockResult.put("scene_id", "test_scene");
         mockResult.put("status", "success");
 
-        // @Value 字段在纯单测（@InjectMocks）下不注入，URL 为 null，桩需用 nullable 匹配
-        when(restTemplate.exchange(nullable(String.class), any(), any(), eq(Map.class)))
-                .thenReturn(new org.springframework.http.ResponseEntity<>(mockResult, org.springframework.http.HttpStatus.OK));
+        when(analysisService.analyze(any())).thenReturn(mockResult);
 
         MockMultipartFile file = new MockMultipartFile(
                 "image", "test.jpg", "image/jpeg", "test image content".getBytes());
@@ -77,8 +68,8 @@ class ZhiXiControllerTest {
     @Test
     @DisplayName("VGGT 服务不可用 - 返回 503")
     void analyze_serviceUnavailable_returns503() throws Exception {
-        when(restTemplate.exchange(nullable(String.class), any(), any(), eq(Map.class)))
-                .thenThrow(new ResourceAccessException("Connection refused"));
+        when(analysisService.analyze(any()))
+                .thenThrow(new CulturalApiException(503, "VGGT 深度解析引擎未就绪，请确认 Python 服务已启动 (端口 8000)"));
 
         MockMultipartFile file = new MockMultipartFile(
                 "image", "test.jpg", "image/jpeg", "test image content".getBytes());
@@ -92,7 +83,7 @@ class ZhiXiControllerTest {
     @Test
     @DisplayName("获取演示数据列表")
     void listDemos_returnsList() throws Exception {
-        when(analysisDemoMapper.selectList(null)).thenReturn(Arrays.asList());
+        when(analysisService.listDemos()).thenReturn(Arrays.asList());
 
         mockMvc.perform(get("/api/v1/analysis/zhixi/demos"))
                 .andExpect(status().isOk())
