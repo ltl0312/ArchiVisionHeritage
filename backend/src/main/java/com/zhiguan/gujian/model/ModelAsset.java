@@ -13,8 +13,11 @@ public class ModelAsset {
 
     private Long taskId;
 
+    /** 显式映射：字段名含数字边界，MyBatis-Plus 自动转换生成 preview2d_path，与表列 preview_2d_path 不一致 */
+    @TableField("preview_2d_path")
     private String preview2dPath;
 
+    @TableField("glb_3d_path")
     private String glb3dPath;
 
     @TableField(fill = FieldFill.INSERT)
