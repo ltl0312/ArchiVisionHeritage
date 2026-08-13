@@ -45,12 +45,4 @@ public class FileUtil {
             throw new RuntimeException("文件保存失败: " + e.getMessage());
         }
     }
-
-    /**
-     * 生成模拟的资产路径（用于异步任务演示）
-     */
-    public String generateMockAssetPath(String subDir, String ext) {
-        String fileName = UUID.randomUUID().toString() + ext;
-        return "/assets/" + subDir + "/" + fileName;
-    }
 }

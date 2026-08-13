@@ -152,11 +152,11 @@ VALUES ('admin',
 
 -- ============================================================================
 -- 初始化演示用户
--- 用户名: demo_user  密码: demo123
+-- 用户名: demo_user  密码: demo123  (BCrypt 加密，独立于 admin)
 -- ============================================================================
 INSERT IGNORE INTO `user` (`username`, `password_hash`, `nickname`, `role`, `bio`)
 VALUES ('demo_user',
-        '$2b$12$CEWyJAgaE7kjNj.WJqnp8uaSeV79e5G13vjev9D7Gxsx9MHh2bRTm',
+        '$2a$12$XStzN1IempNxEjtZIy3Oke/gFaPEZ3e9ZQP/ipaDIxnpRlFG5TGeG',
         '古建爱好者',
         'USER',
         '热爱中国古建筑文化，致力于数字化保护');
