@@ -8,9 +8,6 @@ import com.zhiguan.gujian.community.interfaces.LikeRequest;
 import com.zhiguan.gujian.community.interfaces.CommentResponse;
 import com.zhiguan.gujian.community.interfaces.PostBriefResponse;
 import com.zhiguan.gujian.community.interfaces.PostDetailResponse;
-import com.zhiguan.gujian.shared.common.CulturalApiException;
-import com.zhiguan.gujian.auth.infrastructure.UserMapper;
-import com.zhiguan.gujian.auth.domain.User;
 import com.zhiguan.gujian.community.application.PostService;
 import com.zhiguan.gujian.community.application.CommentService;
 import com.zhiguan.gujian.community.application.LikeService;
@@ -18,10 +15,7 @@ import com.zhiguan.gujian.community.application.FollowService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
@@ -31,8 +25,6 @@ public class CommunityController {
     private final CommentService commentService;
     private final LikeService likeService;
     private final FollowService followService;
-    private final UserMapper userMapper;
-    private final PasswordEncoder passwordEncoder;
 
     // ======================== 社区帖子流 ========================
 
@@ -87,58 +79,8 @@ public class CommunityController {
         return Result.ok();
     }
 
-    // ======================== 个人中心 (User Profile) ========================
-
-    /** 获取当前登录用户完整信息 */
-    @GetMapping("/api/v1/users/me")
-    public Result<Map<String, Object>> getCurrentUser(Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        User user = userMapper.selectById(userId);
-        if (user == null) throw new CulturalApiException(404, "用户不存在");
-        return Result.ok(Map.of(
-                "id", user.getId(),
-                "username", user.getUsername(),
-                "nickname", user.getNickname(),
-                "avatarUrl", user.getAvatarUrl() != null ? user.getAvatarUrl() : "",
-                "bio", user.getBio() != null ? user.getBio() : "",
-                "role", user.getRole() != null ? user.getRole() : "USER",
-                "createdAt", user.getCreatedAt() != null ? user.getCreatedAt().toString() : ""
-        ));
-    }
-
-    /** 更新当前用户个人资料（昵称、头像、文化签名） */
-    @PutMapping("/api/v1/users/me")
-    public Result<Void> updateProfile(@RequestBody Map<String, String> body, Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        User user = userMapper.selectById(userId);
-        if (user == null) throw new CulturalApiException(404, "用户不存在");
-
-        if (body.containsKey("nickname")) user.setNickname(body.get("nickname"));
-        if (body.containsKey("avatarUrl")) user.setAvatarUrl(body.get("avatarUrl"));
-        if (body.containsKey("bio")) user.setBio(body.get("bio"));
-        userMapper.updateById(user);
-        return Result.ok();
-    }
-
-    /** 修改密码 */
-    @PutMapping("/api/v1/users/me/password")
-    public Result<Void> changePassword(@RequestBody Map<String, String> body, Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        User user = userMapper.selectById(userId);
-        if (user == null) throw new CulturalApiException(404, "用户不存在");
-
-        String oldPassword = body.get("oldPassword");
-        String newPassword = body.get("newPassword");
-        if (oldPassword == null || newPassword == null || newPassword.length() < 6) {
-            throw new CulturalApiException(400, "密码格式不正确");
-        }
-        if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
-            throw new CulturalApiException(400, "原密码错误");
-        }
-        user.setPasswordHash(passwordEncoder.encode(newPassword));
-        userMapper.updateById(user);
-        return Result.ok();
-    }
+    // ======================== 个人中心帖子查询 ========================
+    // 注：个人资料/密码接口已迁至 auth BC 的 ProfileController（URL 契约不变）
 
     /** 获取当前用户发布的帖子 */
     @GetMapping("/api/v1/users/me/posts")
