@@ -2,6 +2,7 @@ package com.zhiguan.gujian.controller;
 
 import com.zhiguan.gujian.annotation.RateLimit;
 import com.zhiguan.gujian.config.Result;
+import com.zhiguan.gujian.exception.CulturalApiException;
 import com.zhiguan.gujian.mapper.AnalysisDemoMapper;
 import com.zhiguan.gujian.model.AnalysisDemo;
 import lombok.RequiredArgsConstructor;
@@ -72,13 +73,13 @@ public class ZhiXiController {
                 Map<String, Object> result = (Map<String, Object>) response.getBody();
                 return Result.ok(result);
             } else {
-                return Result.fail(502, "VGGT 分析服务暂时不可用");
+                throw new CulturalApiException(502, "VGGT 分析服务暂时不可用");
             }
 
         } catch (Exception e) {
             log.error("调用 VGGT API 失败", e);
             // Python 服务未启动或网络不通时的降级提示
-            return Result.fail(503, "VGGT 深度解析引擎未就绪，请确认 Python 服务已启动 (端口 8000)");
+            throw new CulturalApiException(503, "VGGT 深度解析引擎未就绪，请确认 Python 服务已启动 (端口 8000)");
         }
     }
 

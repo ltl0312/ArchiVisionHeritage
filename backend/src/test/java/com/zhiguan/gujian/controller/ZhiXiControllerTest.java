@@ -84,7 +84,7 @@ class ZhiXiControllerTest {
                 "image", "test.jpg", "image/jpeg", "test image content".getBytes());
 
         mockMvc.perform(multipart("/api/v1/analysis/zhixi").file(file))
-                .andExpect(status().isOk())
+                .andExpect(status().isServiceUnavailable())
                 .andExpect(jsonPath("$.code").value(503))
                 .andExpect(jsonPath("$.message").value("VGGT 深度解析引擎未就绪，请确认 Python 服务已启动 (端口 8000)"));
     }

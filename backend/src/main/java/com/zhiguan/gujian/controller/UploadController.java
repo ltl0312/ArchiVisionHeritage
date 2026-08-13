@@ -1,6 +1,7 @@
 package com.zhiguan.gujian.controller;
 
 import com.zhiguan.gujian.config.Result;
+import com.zhiguan.gujian.exception.CulturalApiException;
 import com.zhiguan.gujian.utils.FileUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -36,12 +37,12 @@ public class UploadController {
 
         // 1. 校验文件是否为空
         if (file.isEmpty()) {
-            return Result.fail(400, "请选择要上传的文件");
+            throw new CulturalApiException(400, "请选择要上传的文件");
         }
 
         // 2. 校验文件大小
         if (file.getSize() > MAX_FILE_SIZE) {
-            return Result.fail(400, "文件大小不能超过 5MB");
+            throw new CulturalApiException(400, "文件大小不能超过 5MB");
         }
 
         // 3. 校验文件类型
@@ -54,7 +55,7 @@ public class UploadController {
             }
         }
         if (!isAllowed) {
-            return Result.fail(400, "只支持 JPG, PNG, GIF, WebP 格式的图片");
+            throw new CulturalApiException(400, "只支持 JPG, PNG, GIF, WebP 格式的图片");
         }
 
         // 4. 保存文件
@@ -64,7 +65,7 @@ public class UploadController {
             return Result.ok(Map.of("url", url));
         } catch (Exception e) {
             log.error("文件上传失败", e);
-            return Result.fail(500, "文件上传失败，请稍后重试");
+            throw new CulturalApiException(500, "文件上传失败，请稍后重试");
         }
     }
 }

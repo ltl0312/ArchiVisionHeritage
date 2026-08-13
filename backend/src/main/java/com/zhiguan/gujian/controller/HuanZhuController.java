@@ -2,6 +2,7 @@ package com.zhiguan.gujian.controller;
 
 import com.zhiguan.gujian.config.Result;
 import com.zhiguan.gujian.dto.request.HuanZhuRequest;
+import com.zhiguan.gujian.exception.CulturalApiException;
 import com.zhiguan.gujian.dto.response.TaskStatusResponse;
 import com.zhiguan.gujian.service.TaskOrchestrationService;
 import jakarta.validation.Valid;
@@ -47,7 +48,7 @@ public class HuanZhuController {
     public Result<TaskStatusResponse> getTaskStatus(@PathVariable Long id) {
         TaskStatusResponse status = taskOrchestrationService.getTaskStatus(id);
         if (status == null) {
-            return Result.fail(404, "任务不存在");
+            throw new CulturalApiException(404, "任务不存在");
         }
         return Result.ok(status);
     }

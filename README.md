@@ -147,7 +147,7 @@ mysql -u root -p < backend/src/main/resources/init.sql
 
 ```bash
 cd backend
-# 修改 src/main/resources/application.yml 中的数据库密码
+# 数据库密码通过环境变量注入（值参考 .env.example；Git Bash: export DB_PASSWORD=xxx；CMD: set DB_PASSWORD=xxx）
 mvn spring-boot:run
 ```
 

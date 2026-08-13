@@ -8,6 +8,7 @@ import com.zhiguan.gujian.dto.request.LikeRequest;
 import com.zhiguan.gujian.dto.response.CommentResponse;
 import com.zhiguan.gujian.dto.response.PostBriefResponse;
 import com.zhiguan.gujian.dto.response.PostDetailResponse;
+import com.zhiguan.gujian.exception.CulturalApiException;
 import com.zhiguan.gujian.mapper.UserMapper;
 import com.zhiguan.gujian.model.User;
 import com.zhiguan.gujian.service.CommunityService;
@@ -87,7 +88,7 @@ public class CommunityController {
     public Result<Map<String, Object>> getCurrentUser(Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         User user = userMapper.selectById(userId);
-        if (user == null) return Result.fail(404, "用户不存在");
+        if (user == null) throw new CulturalApiException(404, "用户不存在");
         return Result.ok(Map.of(
                 "id", user.getId(),
                 "username", user.getUsername(),
@@ -104,7 +105,7 @@ public class CommunityController {
     public Result<Void> updateProfile(@RequestBody Map<String, String> body, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         User user = userMapper.selectById(userId);
-        if (user == null) return Result.fail(404, "用户不存在");
+        if (user == null) throw new CulturalApiException(404, "用户不存在");
 
         if (body.containsKey("nickname")) user.setNickname(body.get("nickname"));
         if (body.containsKey("avatarUrl")) user.setAvatarUrl(body.get("avatarUrl"));
@@ -118,15 +119,15 @@ public class CommunityController {
     public Result<Void> changePassword(@RequestBody Map<String, String> body, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
         User user = userMapper.selectById(userId);
-        if (user == null) return Result.fail(404, "用户不存在");
+        if (user == null) throw new CulturalApiException(404, "用户不存在");
 
         String oldPassword = body.get("oldPassword");
         String newPassword = body.get("newPassword");
         if (oldPassword == null || newPassword == null || newPassword.length() < 6) {
-            return Result.fail(400, "密码格式不正确");
+            throw new CulturalApiException(400, "密码格式不正确");
         }
         if (!passwordEncoder.matches(oldPassword, user.getPasswordHash())) {
-            return Result.fail(400, "原密码错误");
+            throw new CulturalApiException(400, "原密码错误");
         }
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         userMapper.updateById(user);

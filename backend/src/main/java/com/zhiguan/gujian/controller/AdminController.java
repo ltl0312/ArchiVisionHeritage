@@ -3,6 +3,7 @@ package com.zhiguan.gujian.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhiguan.gujian.config.Result;
 import com.zhiguan.gujian.dto.response.PostBriefResponse;
+import com.zhiguan.gujian.exception.CulturalApiException;
 import com.zhiguan.gujian.service.CommunityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -46,7 +47,7 @@ public class AdminController {
         String rejectReason = body.getOrDefault("rejectReason", null);
 
         if (!"APPROVED".equals(status) && !"REJECTED".equals(status)) {
-            return Result.fail(400, "status 必须为 APPROVED 或 REJECTED");
+            throw new CulturalApiException(400, "status 必须为 APPROVED 或 REJECTED");
         }
 
         communityService.auditPost(id, status, rejectReason);
