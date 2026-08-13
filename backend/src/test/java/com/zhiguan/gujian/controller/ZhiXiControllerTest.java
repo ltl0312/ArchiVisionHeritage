@@ -21,8 +21,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -61,7 +61,8 @@ class ZhiXiControllerTest {
         mockResult.put("scene_id", "test_scene");
         mockResult.put("status", "success");
 
-        when(restTemplate.exchange(anyString(), any(), any(), eq(Map.class)))
+        // @Value 字段在纯单测（@InjectMocks）下不注入，URL 为 null，桩需用 nullable 匹配
+        when(restTemplate.exchange(nullable(String.class), any(), any(), eq(Map.class)))
                 .thenReturn(new org.springframework.http.ResponseEntity<>(mockResult, org.springframework.http.HttpStatus.OK));
 
         MockMultipartFile file = new MockMultipartFile(
@@ -76,7 +77,7 @@ class ZhiXiControllerTest {
     @Test
     @DisplayName("VGGT 服务不可用 - 返回 503")
     void analyze_serviceUnavailable_returns503() throws Exception {
-        when(restTemplate.exchange(anyString(), any(), any(), eq(Map.class)))
+        when(restTemplate.exchange(nullable(String.class), any(), any(), eq(Map.class)))
                 .thenThrow(new ResourceAccessException("Connection refused"));
 
         MockMultipartFile file = new MockMultipartFile(
