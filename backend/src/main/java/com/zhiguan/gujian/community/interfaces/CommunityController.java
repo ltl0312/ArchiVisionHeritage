@@ -11,7 +11,10 @@ import com.zhiguan.gujian.community.interfaces.PostDetailResponse;
 import com.zhiguan.gujian.shared.common.CulturalApiException;
 import com.zhiguan.gujian.auth.infrastructure.UserMapper;
 import com.zhiguan.gujian.auth.domain.User;
-import com.zhiguan.gujian.community.application.CommunityService;
+import com.zhiguan.gujian.community.application.PostService;
+import com.zhiguan.gujian.community.application.CommentService;
+import com.zhiguan.gujian.community.application.LikeService;
+import com.zhiguan.gujian.community.application.FollowService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -24,7 +27,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class CommunityController {
 
-    private final CommunityService communityService;
+    private final PostService postService;
+    private final CommentService commentService;
+    private final LikeService likeService;
+    private final FollowService followService;
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
 
@@ -35,7 +41,7 @@ public class CommunityController {
     public Result<Page<PostBriefResponse>> getPosts(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "12") int size) {
-        return Result.ok(communityService.getPostFeed(page, size));
+        return Result.ok(postService.getPostFeed(page, size));
     }
 
     /** 获取帖子详情 */
@@ -45,14 +51,14 @@ public class CommunityController {
         if (auth != null && auth.getPrincipal() instanceof Long) {
             currentUserId = (Long) auth.getPrincipal();
         }
-        return Result.ok(communityService.getPostDetail(id, currentUserId));
+        return Result.ok(postService.getPostDetail(id, currentUserId));
     }
 
     /** 发表帖子 — 默认状态 PENDING，待管理员审核 */
     @PostMapping("/api/v1/posts")
     public Result<Void> createPost(@Valid @RequestBody CreatePostRequest request, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        communityService.createPost(userId, request);
+        postService.createPost(userId, request);
         return Result.ok();
     }
 
@@ -62,14 +68,14 @@ public class CommunityController {
                                                @Valid @RequestBody CommentRequest request,
                                                Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        return Result.ok(communityService.addComment(userId, id, request));
+        return Result.ok(commentService.addComment(userId, id, request));
     }
 
     /** 点赞/取消点赞 (防抖) */
     @PostMapping("/api/v1/interactions/like")
     public Result<Void> toggleLike(@Valid @RequestBody LikeRequest request, Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        communityService.toggleLike(userId, request);
+        likeService.toggleLike(userId, request);
         return Result.ok();
     }
 
@@ -77,7 +83,7 @@ public class CommunityController {
     @PostMapping("/api/v1/users/{id}/follow")
     public Result<Void> toggleFollow(@PathVariable Long id, Authentication auth) {
         Long followerId = (Long) auth.getPrincipal();
-        communityService.toggleFollow(followerId, id);
+        followService.toggleFollow(followerId, id);
         return Result.ok();
     }
 
@@ -141,7 +147,7 @@ public class CommunityController {
             @RequestParam(defaultValue = "12") int size,
             Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        return Result.ok(communityService.getUserPosts(userId, page, size));
+        return Result.ok(postService.getUserPosts(userId, page, size));
     }
 
     /** 获取当前用户点赞过的帖子 */
@@ -151,6 +157,6 @@ public class CommunityController {
             @RequestParam(defaultValue = "12") int size,
             Authentication auth) {
         Long userId = (Long) auth.getPrincipal();
-        return Result.ok(communityService.getUserLikedPosts(userId, page, size));
+        return Result.ok(likeService.getUserLikedPosts(userId, page, size));
     }
 }

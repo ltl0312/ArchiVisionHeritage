@@ -2,36 +2,27 @@ package com.zhiguan.gujian.community.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.zhiguan.gujian.community.interfaces.CommentRequest;
-import com.zhiguan.gujian.community.interfaces.CreatePostRequest;
-import com.zhiguan.gujian.community.interfaces.LikeRequest;
-import com.zhiguan.gujian.community.interfaces.CommentResponse;
-import com.zhiguan.gujian.community.interfaces.PostBriefResponse;
-import com.zhiguan.gujian.community.interfaces.PostDetailResponse;
-import com.zhiguan.gujian.shared.common.CulturalApiException;
+import com.zhiguan.gujian.auth.domain.User;
 import com.zhiguan.gujian.auth.infrastructure.UserMapper;
+import com.zhiguan.gujian.community.domain.Post;
 import com.zhiguan.gujian.community.infrastructure.CommentMapper;
 import com.zhiguan.gujian.community.infrastructure.FollowRecordMapper;
 import com.zhiguan.gujian.community.infrastructure.LikeRecordMapper;
 import com.zhiguan.gujian.community.infrastructure.PostMapper;
+import com.zhiguan.gujian.community.interfaces.CreatePostRequest;
+import com.zhiguan.gujian.community.interfaces.PostBriefResponse;
+import com.zhiguan.gujian.community.interfaces.PostDetailResponse;
+import com.zhiguan.gujian.shared.common.CulturalApiException;
 import com.zhiguan.gujian.task.infrastructure.ModelAssetMapper;
-import com.zhiguan.gujian.auth.domain.User;
-import com.zhiguan.gujian.community.domain.Comment;
-import com.zhiguan.gujian.community.domain.FollowRecord;
-import com.zhiguan.gujian.community.domain.LikeRecord;
-import com.zhiguan.gujian.community.domain.Post;
-import com.zhiguan.gujian.task.domain.ModelAsset;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -39,14 +30,11 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 /**
- * CommunityServiceImpl 单元测试
+ * PostServiceImpl 单元测试 — 原 CommunityServiceImplTest 的 feed/detail/create/audit 部分
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("社区服务测试")
-class CommunityServiceImplTest {
-
-    @InjectMocks
-    private CommunityServiceImpl communityService;
+@DisplayName("帖子服务测试")
+class PostServiceTest {
 
     @Mock
     private PostMapper postMapper;
@@ -60,6 +48,11 @@ class CommunityServiceImplTest {
     private UserMapper userMapper;
     @Mock
     private ModelAssetMapper modelAssetMapper;
+    @Mock
+    private CommentService commentService;
+
+    private PostBriefAssembler assembler;
+    private PostServiceImpl postService;
 
     private Post testPost;
     private User testUser;
@@ -67,6 +60,12 @@ class CommunityServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        // 真实组装器（复用批量加载逻辑），依赖的 mapper 用上面的 Mock；
+        // 不用 @InjectMocks：assembler 为 4 参构造，Mockito 无法自动注入
+        assembler = new PostBriefAssembler(userMapper, modelAssetMapper, likeRecordMapper, commentMapper);
+        postService = new PostServiceImpl(postMapper, userMapper, modelAssetMapper, likeRecordMapper,
+                followRecordMapper, commentMapper, commentService, assembler);
+
         testUser = new User();
         testUser.setId(1L);
         testUser.setUsername("testuser");
@@ -101,7 +100,7 @@ class CommunityServiceImplTest {
         when(likeRecordMapper.selectList(any())).thenReturn(Arrays.asList());
         when(commentMapper.selectList(any())).thenReturn(Arrays.asList());
 
-        Page<PostBriefResponse> result = communityService.getPostFeed(1, 12);
+        Page<PostBriefResponse> result = postService.getPostFeed(1, 12);
 
         assertNotNull(result);
         assertEquals(1, result.getRecords().size());
@@ -115,9 +114,9 @@ class CommunityServiceImplTest {
         when(userMapper.selectById(1L)).thenReturn(testUser);
         when(likeRecordMapper.selectCount(any())).thenReturn(0L);
         when(commentMapper.selectCount(any())).thenReturn(0L);
-        when(commentMapper.selectList(any())).thenReturn(Arrays.asList());
+        when(commentService.getComments(anyLong())).thenReturn(Arrays.asList());
 
-        PostDetailResponse response = communityService.getPostDetail(1L, 1L);
+        PostDetailResponse response = postService.getPostDetail(1L, 1L);
 
         assertNotNull(response);
         assertEquals(1L, response.getPostId());
@@ -132,7 +131,7 @@ class CommunityServiceImplTest {
 
         CulturalApiException exception = assertThrows(
                 CulturalApiException.class,
-                () -> communityService.getPostDetail(999L, 1L)
+                () -> postService.getPostDetail(999L, 1L)
         );
 
         assertEquals(404, exception.getCode());
@@ -149,7 +148,7 @@ class CommunityServiceImplTest {
         request.setTitle("新帖子");
         request.setContent("新内容");
 
-        communityService.createPost(1L, request);
+        postService.createPost(1L, request);
 
         verify(postMapper).insert(argThat(post -> "PENDING".equals(post.getStatus())));
     }
@@ -164,63 +163,9 @@ class CommunityServiceImplTest {
         request.setTitle("管理员帖子");
         request.setContent("管理员内容");
 
-        communityService.createPost(2L, request);
+        postService.createPost(2L, request);
 
         verify(postMapper).insert(argThat(post -> "APPROVED".equals(post.getStatus())));
-    }
-
-    @Test
-    @DisplayName("点赞 - 首次点赞创建记录")
-    void toggleLike_firstLike_createsRecord() {
-        when(likeRecordMapper.selectOne(any())).thenReturn(null);
-        when(likeRecordMapper.insert(any())).thenReturn(1);
-
-        LikeRequest request = new LikeRequest();
-        request.setTargetId(1L);
-        request.setTargetType("POST");
-
-        assertDoesNotThrow(() -> communityService.toggleLike(1L, request));
-
-        verify(likeRecordMapper).insert(any());
-        verify(likeRecordMapper, never()).deleteById(anyLong());
-    }
-
-    @Test
-    @DisplayName("点赞 - 再次点赞删除记录")
-    void toggleLike_alreadyLiked_deletesRecord() {
-        LikeRecord existing = new LikeRecord();
-        existing.setId(1L);
-        when(likeRecordMapper.selectOne(any())).thenReturn(existing);
-        when(likeRecordMapper.deleteById(1L)).thenReturn(1);
-
-        LikeRequest request = new LikeRequest();
-        request.setTargetId(1L);
-        request.setTargetType("POST");
-
-        assertDoesNotThrow(() -> communityService.toggleLike(1L, request));
-
-        verify(likeRecordMapper).deleteById(1L);
-        verify(likeRecordMapper, never()).insert(any());
-    }
-
-    @Test
-    @DisplayName("关注 - 首次关注创建记录")
-    void toggleFollow_firstFollow_createsRecord() {
-        when(followRecordMapper.selectOne(any())).thenReturn(null);
-        when(followRecordMapper.insert(any())).thenReturn(1);
-
-        assertDoesNotThrow(() -> communityService.toggleFollow(1L, 2L));
-
-        verify(followRecordMapper).insert(any());
-    }
-
-    @Test
-    @DisplayName("关注 - 不能关注自己")
-    void toggleFollow_self_followIgnored() {
-        assertDoesNotThrow(() -> communityService.toggleFollow(1L, 1L));
-
-        verify(followRecordMapper, never()).selectOne(any());
-        verify(followRecordMapper, never()).insert(any());
     }
 
     @Test
@@ -230,7 +175,7 @@ class CommunityServiceImplTest {
 
         CulturalApiException exception = assertThrows(
                 CulturalApiException.class,
-                () -> communityService.auditPost(999L, "APPROVED", null)
+                () -> postService.auditPost(999L, "APPROVED", null)
         );
 
         assertEquals(404, exception.getCode());
@@ -246,7 +191,7 @@ class CommunityServiceImplTest {
         when(postMapper.selectById(1L)).thenReturn(pendingPost);
         when(postMapper.updateById(any())).thenReturn(1);
 
-        assertDoesNotThrow(() -> communityService.auditPost(1L, "APPROVED", null));
+        assertDoesNotThrow(() -> postService.auditPost(1L, "APPROVED", null));
 
         verify(postMapper).updateById(argThat(post -> "APPROVED".equals(post.getStatus())));
     }
@@ -261,7 +206,7 @@ class CommunityServiceImplTest {
         when(postMapper.selectById(1L)).thenReturn(pendingPost);
         when(postMapper.updateById(any())).thenReturn(1);
 
-        assertDoesNotThrow(() -> communityService.auditPost(1L, "REJECTED", "内容不符合规范"));
+        assertDoesNotThrow(() -> postService.auditPost(1L, "REJECTED", "内容不符合规范"));
 
         verify(postMapper).updateById(argThat(post ->
                 "REJECTED".equals(post.getStatus()) && "内容不符合规范".equals(post.getRejectReason())

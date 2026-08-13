@@ -4,7 +4,8 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhiguan.gujian.shared.common.Result;
 import com.zhiguan.gujian.community.interfaces.PostBriefResponse;
 import com.zhiguan.gujian.shared.common.CulturalApiException;
-import com.zhiguan.gujian.community.application.CommunityService;
+// 注：shared/web → community BC 的临时跨 BC 依赖（文档 §5.6 明示，后续演进再细化拆分）
+import com.zhiguan.gujian.community.application.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -24,14 +25,14 @@ import java.util.Map;
 @PreAuthorize("hasRole('ADMIN')")
 public class AdminController {
 
-    private final CommunityService communityService;
+    private final PostService postService;
 
     /** 获取待审核帖子列表 (status = PENDING) */
     @GetMapping("/posts/pending")
     public Result<Page<PostBriefResponse>> getPendingPosts(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return Result.ok(communityService.getPendingPosts(page, size));
+        return Result.ok(postService.getPendingPosts(page, size));
     }
 
     /**
@@ -50,7 +51,7 @@ public class AdminController {
             throw new CulturalApiException(400, "status 必须为 APPROVED 或 REJECTED");
         }
 
-        communityService.auditPost(id, status, rejectReason);
+        postService.auditPost(id, status, rejectReason);
         return Result.ok();
     }
 }
