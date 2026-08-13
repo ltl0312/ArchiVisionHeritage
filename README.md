@@ -140,6 +140,7 @@ mysql -u root -p < backend/src/main/resources/init.sql
 - 创建 `zhiguan_gujian` 数据库
 - 建立全部 9 张业务表（user、post、comment、like_record、follow_record、ai_task、model_asset、notification、analysis_demo）
 - 创建管理员账号：`admin` / `admin123`
+- 创建演示用户：`demo_user` / `demo123`
 - 导入 VGGT 演示解析数据
 
 ### 2. 启动后端
@@ -254,8 +255,7 @@ npm run build    # 生产构建
 - **开发环境**：Vite proxy (`/api` → `localhost:8080`)
 - **生产部署**：建议 Nginx 反向代理，无需后端 CorsConfig
 
-## 默认管理员账号
+## 默认账号
 
-- 用户名：`admin`
-- 密码：`admin123`
-- 角色：ADMIN（可访问审核工作台）
+- 管理员：用户名 `admin` / 密码 `admin123`（角色 ADMIN，可访问审核工作台）
+- 演示用户：用户名 `demo_user` / 密码 `demo123`（角色 USER）

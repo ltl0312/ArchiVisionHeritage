@@ -7,14 +7,11 @@ import com.zhiguan.gujian.model.AiTask;
 import com.zhiguan.gujian.model.ModelAsset;
 import com.zhiguan.gujian.service.IdempotentLockService;
 import com.zhiguan.gujian.service.TaskOrchestrationService;
-import com.zhiguan.gujian.service.NotificationService;
 import com.zhiguan.gujian.utils.AncientDictUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 /**
  * 一键幻筑核心调度服务：基于 @Async 实现后台异步状态机流转
@@ -44,7 +41,6 @@ public class TaskOrchestrationServiceImpl implements TaskOrchestrationService {
 
     private final AiTaskMapper aiTaskMapper;
     private final ModelAssetMapper modelAssetMapper;
-    private final NotificationService notificationService;
     private final IdempotentLockService idempotentLockService;
     private final TaskAsyncExecutor taskAsyncExecutor;
 
@@ -117,10 +113,5 @@ public class TaskOrchestrationServiceImpl implements TaskOrchestrationService {
         }
 
         return builder.build();
-    }
-
-    @Override
-    public List<?> getNotifications(Long userId) {
-        return notificationService.getNotifications(userId);
     }
 }

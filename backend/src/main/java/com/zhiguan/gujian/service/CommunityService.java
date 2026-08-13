@@ -27,12 +27,6 @@ public interface CommunityService {
 
     void toggleFollow(Long followerId, Long followingId);
 
-    boolean isFollowing(Long followerId, Long followingId);
-
-    int getFollowerCount(Long userId);
-
-    int getFollowingCount(Long userId);
-
     /** 管理员审核帖子：status = APPROVED 或 REJECTED */
     void auditPost(Long postId, String status, String rejectReason);
 

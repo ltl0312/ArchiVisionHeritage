@@ -238,29 +238,6 @@ public class CommunityServiceImpl implements CommunityService {
         }
     }
 
-    @Override
-    public boolean isFollowing(Long followerId, Long followingId) {
-        if (followerId == null || followingId == null) return false;
-        return followRecordMapper.selectCount(
-                new LambdaQueryWrapper<FollowRecord>()
-                        .eq(FollowRecord::getFollowerId, followerId)
-                        .eq(FollowRecord::getFollowingId, followingId)) > 0;
-    }
-
-    @Override
-    public int getFollowerCount(Long userId) {
-        return followRecordMapper.selectCount(
-                new LambdaQueryWrapper<FollowRecord>()
-                        .eq(FollowRecord::getFollowingId, userId)).intValue();
-    }
-
-    @Override
-    public int getFollowingCount(Long userId) {
-        return followRecordMapper.selectCount(
-                new LambdaQueryWrapper<FollowRecord>()
-                        .eq(FollowRecord::getFollowerId, userId)).intValue();
-    }
-
     // ======================== 管理员审核 ========================
 
     @Override
