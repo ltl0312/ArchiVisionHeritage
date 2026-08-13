@@ -11,7 +11,7 @@ spring:
   datasource:
     url: jdbc:mysql://localhost:3306/zhiguan_gujian
     username: root
-    password: a82711045
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   data:
@@ -31,8 +31,8 @@ spring:
 
   servlet:
     multipart:
-      max-file-size: 50MB
-      max-request-size: 50MB
+      max-file-size: 5MB
+      max-request-size: 5MB
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
@@ -50,6 +50,11 @@ zhiguan:
   assets:
     local-path: ./assets
     url-prefix: /assets
+
+  # JWT 密钥与过期时间（生产环境用 JWT_SECRET 环境变量覆盖）
+  jwt:
+    secret: ${JWT_SECRET:ZhiGuan-GuJian-2024-SecretKey-For-JWT-Token-Generation-Must-Be-Long-Enough}
+    expiration: 86400000
 
 # Actuator 健康指标 + Prometheus 监控端点
 management:
