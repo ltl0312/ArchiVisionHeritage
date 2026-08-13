@@ -29,7 +29,7 @@ spring:
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: com.zhiguan.gujian.model
+  type-aliases-package: com.zhiguan.gujian.auth.domain,com.zhiguan.gujian.task.domain,com.zhiguan.gujian.analysis.domain,com.zhiguan.gujian.community.domain,com.zhiguan.gujian.notification.domain
   configuration:
     map-underscore-to-camel-case: true
 
