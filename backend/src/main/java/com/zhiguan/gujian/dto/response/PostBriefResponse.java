@@ -16,5 +16,7 @@ public class PostBriefResponse {
     private String authorAvatarUrl;
     private int likeCount;
     private int commentCount;
+    private String status;
+    private String tags;
     private String createdAt;
 }

@@ -128,6 +128,7 @@ ArchiVisionHeritage/
 - **Maven 3.8+**
 - **Node.js 18+**
 - **MySQL 8.0+**
+- **Redis 7+**
 
 ### 1. 数据库初始化
 
@@ -156,7 +157,8 @@ mvn spring-boot:run
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev      # 开发模式
+npm run build    # 生产构建
 ```
 
 前端启动于：`http://localhost:5173`
@@ -171,19 +173,20 @@ npm run dev
 
 ## 设计规范
 
-### 中国传统色彩体系 (Design Tokens)
+### 中国传统色彩体系 (Design Tokens) — V3 石色·琥珀·月季
 
 | 令牌 | 语义 | Hex |
 |------|------|-----|
-| `--color-primary` | 祥瑞红 | `#B8261F` |
-| `--color-secondary` | 琉璃金 | `#B58E36` |
-| `--color-accent-jade` | 碧玉青 | `#2D9B5C` |
-| `--color-accent-indigo` | 苍黛蓝 | `#002CA2` |
-| `--color-bg-base` | 缟素白 | `#F5F5F5` |
-| `--color-surface` | 铅华白 | `#FFFFFF` |
-| `--color-text-main` | 黎黑 | `#313133` |
-| `--color-text-sub` | 瓦灰 | `#8A838A` |
-| `--color-header-bg` | 苍穹黑 | `#001529` |
+| `--color-accent` | 琥珀金 | `#D97706` |
+| `--color-accent-light` | 亮琥珀 | `#F59E0B` |
+| `--color-rose` | 月季红 | `#E11D48` |
+| `--color-bg-base` | 暖宣纸色 | `#F4F1EB` |
+| `--color-surface` | 毛玻璃卡片 | `rgba(255,255,255,0.6)` + blur |
+| `--color-text-main` | stone-800 | `#292524` |
+| `--color-text-sub` | stone-500 | `#78716C` |
+| `--color-border` | 极淡分割 | `rgba(0,0,0,0.06)` |
+
+支持 `[data-theme="dark"]` 夜间模式自动切换。
 
 ### 4pt 间距系统
 
@@ -241,7 +244,7 @@ npm run dev
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": { ... }
 }
 ```

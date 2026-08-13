@@ -2,6 +2,7 @@ package com.zhiguan.gujian.aop.aspect;
 
 import com.zhiguan.gujian.annotation.RateLimit;
 import com.zhiguan.gujian.exception.CulturalApiException;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -12,9 +13,10 @@ import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
@@ -65,7 +67,7 @@ public class RateLimitAspect {
         return joinPoint.proceed();
     }
 
-    /** 获取用户标识：优先 JWT userId，未登录回退 sessionId */
+    /** 获取用户标识：优先 JWT userId，未登录回退客户端 IP */
     private String getCurrentUserIdentifier() {
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
@@ -75,6 +77,29 @@ public class RateLimitAspect {
         } catch (Exception ignored) {
             // 未登录或 token 无效，使用 fallback
         }
+
+        // 获取客户端 IP 地址
+        try {
+            ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attributes != null) {
+                HttpServletRequest request = attributes.getRequest();
+                String ip = request.getHeader("X-Forwarded-For");
+                if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+                    ip = request.getHeader("X-Real-IP");
+                }
+                if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
+                    ip = request.getRemoteAddr();
+                }
+                // 多个代理时取第一个
+                if (ip != null && ip.contains(",")) {
+                    ip = ip.split(",")[0].trim();
+                }
+                return "ip:" + ip;
+            }
+        } catch (Exception ignored) {
+            // 获取 IP 失败
+        }
+
         return "anonymous";
     }
 }

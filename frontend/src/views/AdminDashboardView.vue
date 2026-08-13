@@ -1,281 +1,153 @@
 <template>
-  <div class="admin-page">
+  <div class="admin-page animate-fade-in">
     <div class="admin-header">
       <h2 class="page-title">
         <el-icon><Monitor /></el-icon>
-        审核工作台
+        中枢控制台
       </h2>
-      <el-tag type="info" size="large">待审核 {{ total }} 篇</el-tag>
+      <p class="page-sub">仅掌印官（管理员）可见的数据总览与权限管理中心。</p>
     </div>
 
-    <!-- 审核列表 -->
-    <div class="audit-list" v-loading="loading">
-      <div v-for="post in posts" :key="post.postId" class="audit-card">
-        <div class="audit-card-cover">
-          <el-image v-if="post.preview2dPath" :src="post.preview2dPath" fit="cover" class="cover-img">
-            <template #error>
-              <div class="cover-placeholder">
-                <el-icon size="40"><PictureFilled /></el-icon>
-              </div>
-            </template>
-          </el-image>
-          <div v-else class="cover-placeholder">
-            <el-icon size="40"><PictureFilled /></el-icon>
-          </div>
-        </div>
+    <!-- 审核队列 -->
+    <div class="glass-card" v-loading="loading">
+      <h3 class="section-title">待审核帖子</h3>
 
-        <div class="audit-card-body">
-          <h4 class="post-title">{{ post.title }}</h4>
-          <div class="post-meta">
-            <el-avatar :size="20" :icon="UserFilled" />
-            <span>{{ post.authorNickname }}</span>
-            <el-divider direction="vertical" />
-            <span class="post-time">{{ post.createdAt }}</span>
-          </div>
-          <div class="post-stats">
-            <span><el-icon><StarFilled /></el-icon> {{ post.likeCount }}</span>
-            <span><el-icon><ChatDotRound /></el-icon> {{ post.commentCount }}</span>
-          </div>
-
-          <!-- 驳回原因输入（仅在选择驳回时展示） -->
-          <div v-if="rejectingId === post.postId" class="reject-area">
-            <el-input
-              v-model="rejectReason"
-              placeholder="请填写驳回原因..."
-              maxlength="255"
-              class="reject-input"
-            />
-            <div class="reject-actions">
-              <el-button size="small" @click="rejectingId = null">取消</el-button>
-              <el-button size="small" type="danger" @click="confirmReject(post.postId)">
-                确认驳回
-              </el-button>
+      <div v-if="pendingPosts.length" class="audit-list">
+        <div v-for="post in pendingPosts" :key="post.postId" class="audit-item">
+          <div class="audit-info">
+            <h4>{{ post.title }}</h4>
+            <div class="audit-meta">
+              <span>作者：{{ post.authorNickname || '匿名' }}</span>
+              <span>{{ post.createdAt }}</span>
             </div>
+            <p class="audit-content">{{ (post.content || '').substring(0, 120) }}{{ (post.content || '').length > 120 ? '...' : '' }}</p>
           </div>
-
-          <!-- 操作按钮 -->
-          <div class="audit-actions" v-if="rejectingId !== post.postId">
-            <el-button type="success" :loading="auditingId === post.postId" @click="approve(post.postId)">
-              <el-icon><Select /></el-icon>
-              审核通过
+          <div class="audit-actions">
+            <el-button type="success" :loading="auditingId === post.postId" @click="auditPost(post.postId, true)">
+              通过
             </el-button>
-            <el-button type="danger" plain :loading="auditingId === post.postId" @click="startReject(post.postId)">
-              <el-icon><CloseBold /></el-icon>
+            <el-button type="danger" :loading="auditingId === post.postId" @click="auditPost(post.postId, false)">
               驳回
             </el-button>
           </div>
         </div>
       </div>
 
-      <!-- 空状态 -->
-      <el-empty v-if="!loading && posts.length === 0" description="暂无待审核内容">
-        <template #image>
-          <el-icon size="64" color="#c0c4cc"><CircleCheckFilled /></el-icon>
-        </template>
-      </el-empty>
-    </div>
-
-    <!-- 分页 -->
-    <div class="pagination-wrapper" v-if="total > pageSize">
-      <el-pagination
-        v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="total"
-        layout="prev, pager, next"
-        @current-change="fetchPosts"
-        background
-      />
+      <el-empty v-else description="暂无待审核帖子" />
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { Monitor, PictureFilled, StarFilled, ChatDotRound, Select, CloseBold, CircleCheckFilled, UserFilled } from '@element-plus/icons-vue'
+import { Monitor } from '@element-plus/icons-vue'
 import { adminApi } from '@/api/admin'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 
-const posts = ref([])
-const loading = ref(false)
-const currentPage = ref(1)
-const pageSize = ref(20)
-const total = ref(0)
-
+const loading = ref(true)
+const pendingPosts = ref([])
 const auditingId = ref(null)
-const rejectingId = ref(null)
-const rejectReason = ref('')
 
-onMounted(() => fetchPosts())
-
-async function fetchPosts() {
+async function fetchPending() {
   loading.value = true
   try {
-    const res = await adminApi.getPendingPosts(currentPage.value, pageSize.value)
-    posts.value = res.data?.records || []
-    total.value = res.data?.total || 0
-  } finally {
-    loading.value = false
-  }
+    const res = await adminApi.getPendingPosts()
+    pendingPosts.value = res.data?.records || res.data || []
+  } catch { /* ignore */ }
+  loading.value = false
 }
 
-async function approve(postId) {
+async function auditPost(postId, approved) {
   auditingId.value = postId
   try {
-    await adminApi.auditPost(postId, 'APPROVED', '')
-    ElMessage.success('已审核通过，帖子已发布至社区信息流')
-    posts.value = posts.value.filter(p => p.postId !== postId)
-    total.value--
-  } finally {
-    auditingId.value = null
-  }
+    await adminApi.auditPost(postId, approved ? 'APPROVED' : 'REJECTED')
+    ElMessage.success(approved ? '已通过' : '已驳回')
+    fetchPending()
+  } catch { /* ignore */ }
+  auditingId.value = null
 }
 
-function startReject(postId) {
-  rejectingId.value = postId
-  rejectReason.value = ''
-}
-
-async function confirmReject(postId) {
-  if (!rejectReason.value.trim()) {
-    return ElMessage.warning('请填写驳回原因')
-  }
-  auditingId.value = postId
-  try {
-    await adminApi.auditPost(postId, 'REJECTED', rejectReason.value)
-    ElMessage.success('已驳回该帖子')
-    posts.value = posts.value.filter(p => p.postId !== postId)
-    total.value--
-    rejectingId.value = null
-  } finally {
-    auditingId.value = null
-  }
-}
+onMounted(fetchPending)
 </script>
 
 <style scoped>
 .admin-page {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: var(--spacing-lg);
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
 }
 
+.admin-page::-webkit-scrollbar { width: 6px; }
+.admin-page::-webkit-scrollbar-track { background: transparent; }
+.admin-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+
 .admin-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-lg);
+  margin-bottom: var(--spacing-xl);
 }
 
 .page-title {
+  font-family: var(--font-family-serif);
+  font-size: var(--font-size-title);
+  color: var(--color-text-main);
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
-  font-size: var(--font-size-title);
-  font-weight: 700;
-  color: var(--color-text-main);
-  letter-spacing: 2px;
+  margin-bottom: 4px;
 }
 
-.audit-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-md);
+.page-sub {
+  font-size: 14px;
+  color: var(--color-text-sub);
 }
 
-.audit-card {
-  display: flex;
+.glass-card {
   background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-  transition: box-shadow var(--transition-normal);
-}
-.audit-card:hover {
-  box-shadow: var(--shadow-card-hover);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-2xl);
+  padding: var(--spacing-xl);
 }
 
-.audit-card-cover {
-  width: 200px;
-  min-height: 160px;
-  flex-shrink: 0;
-}
-
-.cover-img {
-  width: 100%;
-  height: 100%;
-}
-
-.cover-placeholder {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-subtle);
-  color: var(--color-text-muted);
-}
-
-.audit-card-body {
-  flex: 1;
-  padding: var(--spacing-md) var(--spacing-lg);
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-
-.post-title {
-  font-size: 17px;
-  font-weight: 600;
+.section-title {
+  font-family: var(--font-family-serif);
+  font-size: 18px;
   color: var(--color-text-main);
+  margin-bottom: var(--spacing-lg);
+}
+
+.audit-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-md) 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.audit-info { flex: 1; }
+.audit-info h4 {
+  font-size: 15px;
+  color: var(--color-text-main);
+  margin-bottom: 4px;
+}
+
+.audit-meta {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  display: flex;
+  gap: var(--spacing-md);
   margin-bottom: var(--spacing-sm);
 }
 
-.post-meta {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+.audit-content {
   font-size: 13px;
   color: var(--color-text-sub);
-  margin-bottom: var(--spacing-xs);
-}
-
-.post-time { color: var(--color-text-muted); }
-
-.post-stats {
-  display: flex;
-  gap: var(--spacing-md);
-  font-size: 13px;
-  color: var(--color-text-sub);
+  line-height: 1.6;
 }
 
 .audit-actions {
   display: flex;
-  gap: var(--spacing-sm);
-  margin-top: var(--spacing-sm);
-}
-
-.reject-area {
-  margin-top: var(--spacing-sm);
-  display: flex;
   flex-direction: column;
   gap: var(--spacing-sm);
-}
-
-.reject-input { max-width: 360px; }
-
-.reject-actions {
-  display: flex;
-  gap: var(--spacing-sm);
-}
-
-.pagination-wrapper {
-  display: flex;
-  justify-content: center;
-  padding: var(--spacing-lg) 0;
-}
-
-@media (max-width: 640px) {
-  .audit-card { flex-direction: column; }
-  .audit-card-cover { width: 100%; height: 180px; }
+  flex-shrink: 0;
 }
 </style>

@@ -10,9 +10,10 @@ release-new/
 
 #========== 脚本===========
 # *.py
-_pycache__/
+_pycache/
 *.pyc
 .bat
+api/
 
 # ========== 环境 & 日志 ==========
 .env.local
@@ -32,6 +33,9 @@ _pycache__/
 .vscode/state.*
 .claude/
 prompt/
+.env
+vggt-api/__pycache__/
+vggt-api/api_uploads/
 
 # ========== 按需调整（建议取消全局忽略） ==========
 # *.sql  -> 改为忽略特定备份，如: backup_*.sql

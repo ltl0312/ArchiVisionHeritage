@@ -1,0 +1,115 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: zhiguan-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-a82711045}
+      MYSQL_DATABASE: zhiguan_gujian
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-a82711045}"]
+      interval: 10s
+      timeout: 5s
+      start_period: 30s
+      retries: 5
+    networks:
+      - zhiguan-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: zhiguan-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+    networks:
+      - zhiguan-net
+
+  vggt-api:
+    build: ./vggt-api
+    container_name: zhiguan-vggt
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - vggt-uploads:/app/api_uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    networks:
+      - zhiguan-net
+
+  backend:
+    build: ./backend
+    container_name: zhiguan-backend
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: zhiguan_gujian
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_PASSWORD:-a82711045}
+      REDIS_HOST: redis
+      REDIS_PORT: "6379"
+      VGGT_API_URL: http://vggt-api:8000/v1/analyze
+      ASSETS_LOCAL_PATH: /app/assets
+      JAVA_OPTS: "-Xms256m -Xmx512m"
+    ports:
+      - "8080:8080"
+    volumes:
+      - asset-uploads:/app/assets
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      vggt-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    networks:
+      - zhiguan-net
+
+  frontend:
+    build: ./frontend
+    container_name: zhiguan-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - zhiguan-net
+
+volumes:
+  mysql-data:
+  redis-data:
+  vggt-uploads:
+  asset-uploads:
+
+networks:
+  zhiguan-net:
+    driver: bridge

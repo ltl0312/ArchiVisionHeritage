@@ -76,6 +76,8 @@ CREATE TABLE `post` (
     `model_asset_id` BIGINT DEFAULT NULL COMMENT '关联的古建3D资产ID',
     `title` VARCHAR(128) NOT NULL COMMENT '动态标题',
     `content` TEXT COMMENT '文化内涵与文字描述',
+    `tags` VARCHAR(512) DEFAULT NULL COMMENT '标签（逗号分隔）',
+    `cover_image_url` VARCHAR(1024) DEFAULT NULL COMMENT '封面图URL',
     `status` VARCHAR(16) NOT NULL DEFAULT 'PENDING' COMMENT '审核状态: PENDING(待审核) / APPROVED(已发布) / REJECTED(已驳回)',
     `reject_reason` VARCHAR(255) DEFAULT NULL COMMENT '审核驳回原因',
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

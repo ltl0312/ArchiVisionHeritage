@@ -19,6 +19,10 @@ public class Post {
 
     private String content;
 
+    private String tags;
+
+    private String coverImageUrl;
+
     /** 审核状态：PENDING（待审核）/ APPROVED（已发布）/ REJECTED（已驳回） */
     private String status;
 

@@ -29,7 +29,14 @@ if existingTaskId and existingTaskId ~= '' then
     return 0
 end
 
--- 无重复 → 允许创建，设置短期占位锁防并发穿透
+-- 无重复 → 检查锁是否已存在（防并发穿透）
+local lockExists = redis.call('EXISTS', lockKey)
+if lockExists == 1 then
+    -- 锁已存在（另一个请求正在创建任务），拒绝
+    return 0
+end
+
+-- 允许创建，设置短期占位锁
 -- 注意：真正的 taskId 由 Java 端在 MySQL INSERT 后通过 updateLockWithTaskId() 回填
 redis.call('SETEX', lockKey, ttl, '1')
 return 1

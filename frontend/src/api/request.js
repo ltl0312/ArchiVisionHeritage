@@ -32,6 +32,14 @@ request.interceptors.response.use(
     // HTTP 异常（401/403/429/500等）— 优先提取后端返回的 message
     const serverMsg = error.response?.data?.message
     const msg = serverMsg || error.message || '网络错误'
+
+    // 401 未授权 — Token 过期或无效，自动跳转登录
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token')
+      window.location.href = '/login'
+      return Promise.reject(error)
+    }
+
     ElMessage.error(msg)
     return Promise.reject(error)
   }

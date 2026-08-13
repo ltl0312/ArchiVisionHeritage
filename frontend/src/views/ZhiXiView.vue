@@ -1,356 +1,347 @@
 <template>
-  <div class="page-container">
-    <div class="page-header-center">
-      <h1>
-        <el-icon size="28"><Search /></el-icon>
-        古建智析 · VGGT 结构解析
-      </h1>
-      <p>上传古建图片，深度解析营造法式之奥秘</p>
+  <div class="zhixi-page animate-fade-in">
+    <!-- 状态胶囊 -->
+    <div class="status-capsule">
+      <el-icon :size="16" class="capsule-icon"><MagicStick /></el-icon>
+      <span class="capsule-text">VGGT 智析引擎</span>
+      <span class="capsule-divider">|</span>
+      <span class="capsule-quota">剩余次数: <strong>{{ quota.remaining }}</strong>/{{ quota.total }}</span>
     </div>
 
-    <!-- 文化温度提示 — 琉璃金底色 -->
-    <div class="cultural-alert">
-      <el-icon size="18"><WarningFilled /></el-icon>
-      <span>古建高精几何解析犹如匠人雕琢，需耗费大量云端算力。出于对资源的敬畏与合理配置，<strong>平台对单用户实行每日最多 5 次的解析节制</strong>。请选择最具代表性的建筑立面或斗栱细节进行探索。</span>
-    </div>
+    <!-- 头部 -->
+    <header class="page-header">
+      <h2 class="header-title">古建智析</h2>
+      <p class="header-sub">上传影像，VGGT 视觉引擎将为您解构建筑的骨骼与历史的脉络。</p>
+    </header>
 
-    <!-- 虚线拖拽上传区 — 琉璃金边框 -->
-    <div class="upload-section">
-      <el-upload
-        class="upload-area"
-        drag
-        :auto-upload="false"
-        :on-change="handleFileChange"
-        :limit="1"
-        accept="image/*"
-      >
-        <div class="dashed-upload-zone" v-if="!selectedFile">
-          <div class="upload-icon">&#x2302;</div>
-          <p class="upload-text">拖拽或点击上传古建图片</p>
-          <p class="upload-hint">支持 JPG / PNG，建议分辨率 512×512 以上</p>
-        </div>
-        <div v-else class="upload-preview">
-          <img :src="previewUrl" alt="预览" />
-          <p class="file-name">{{ selectedFile.name }}</p>
-        </div>
-      </el-upload>
+    <div class="zhixi-layout">
+      <!-- 上传区 -->
+      <div class="upload-section">
+        <div class="upload-zone glass-card" @click="triggerUpload" :class="{ analyzing }">
+          <template v-if="!result && !analyzing">
+            <div class="upload-icon-circle">
+              <el-icon :size="32"><UploadFilled /></el-icon>
+            </div>
+            <h3>点击或拖拽上传古建影像</h3>
+            <p class="upload-hint">支持 JPG, PNG, MP4 格式</p>
+            <input ref="fileInputRef" type="file" accept="image/*" style="display:none" @change="handleFileSelect" />
+            <button class="btn-gradient upload-btn" @click.stop="startAnalyze">开始解析</button>
+          </template>
 
-      <el-button
-        type="primary"
-        size="large"
-        :loading="analyzing"
-        :disabled="!selectedFile"
-        @click="handleAnalyze"
-        class="analyze-btn"
-      >
-        <el-icon><Search /></el-icon>
-        开始结构解析
-      </el-button>
-    </div>
-
-    <!-- VGGT 处理中的古塔构建动画 -->
-    <div v-if="analyzing" class="dream-loading">
-      <p class="loading-text">古建解析引擎正在推算三维结构...</p>
-      <div class="pagoda-building">
-        <div class="pagoda-layer" v-for="i in 6" :key="i"></div>
-      </div>
-      <p class="loading-sub">榫卯交错，匠心独运</p>
-    </div>
-
-    <!-- 解析结果展示 -->
-    <div v-if="result" class="result-section glass-panel">
-      <h2 class="result-title">
-        <el-icon size="20"><DataAnalysis /></el-icon>
-        {{ result.title || '结构解析结果' }}
-      </h2>
-
-      <!-- 转译后的文化解读卡片 -->
-      <div class="insight-cards" v-if="parsedElements.length">
-        <div
-          v-for="(elem, idx) in parsedElements"
-          :key="idx"
-          class="insight-card"
-          @mouseenter="hoveredElement = idx"
-          @mouseleave="hoveredElement = null"
-        >
-          <div class="insight-header">
-            <span class="ontology-badge">{{ elem.ontology }}</span>
-            <el-tag size="small" type="success" effect="plain">
-              置信度 {{ (elem.confidence * 100).toFixed(0) }}%
-            </el-tag>
+          <!-- 分析中 -->
+          <div v-if="analyzing && !result" class="analyzing-state">
+            <div class="scan-frame">
+              <el-image v-if="uploadedImage" :src="uploadedImage" fit="cover" class="scan-img" />
+              <div v-else class="scan-placeholder"></div>
+              <div class="scan-line animate-scan"></div>
+            </div>
+            <p class="analyzing-text">VGGT 引擎正在解构多维特征...</p>
           </div>
 
-          <div class="bounding-box-info">
-            <span class="bb-label">定位区域</span>
-            <code>[{{ elem.boundingBox?.join(', ') }}]</code>
-          </div>
-
-          <el-tooltip placement="right" :visible="hoveredElement === idx">
-            <template #content>
-              <div style="max-width:280px; line-height:1.7;">
-                {{ elem.culturalInsight }}
-              </div>
-            </template>
-            <p class="cultural-insight-text">{{ elem.culturalInsight }}</p>
-          </el-tooltip>
+          <!-- 结果图 -->
+          <el-image v-if="result && !analyzing && uploadedImage" :src="uploadedImage" fit="cover" class="result-img" />
         </div>
       </div>
 
-      <!-- 原始JSON数据 (折叠) -->
-      <el-collapse style="margin-top: var(--spacing-md)">
-        <el-collapse-item title="查看原始解析数据 (JSON)">
-          <pre class="json-preview">{{ JSON.stringify(result, null, 2) }}</pre>
-        </el-collapse-item>
-      </el-collapse>
+      <!-- 结果面板 -->
+      <div class="result-section" v-if="result">
+        <div class="result-card glass-card">
+          <h3 class="result-title">
+            <el-icon :size="20" class="result-title-icon"><InfoFilled /></el-icon>
+            文化肌理报告
+          </h3>
 
-      <!-- 预留：AI结构推演与修复入口 (Ghost Button) -->
-      <div class="restoration-placeholder">
-        <button class="ghost-btn-disabled">
-          <el-icon><MagicStick /></el-icon>
-          启动 AI 结构推演与修复 (Beta 未开放)
-        </button>
-        <p class="placeholder-hint">智能修复能力正在深度训练中，敬请期待</p>
+          <div class="result-grid">
+            <div class="result-item">
+              <div class="result-label"><el-icon :size="14"><Grid /></el-icon> 屋顶形制</div>
+              <div class="result-value">{{ result.archType }}</div>
+            </div>
+            <div class="result-item">
+              <div class="result-label"><el-icon :size="14"><Clock /></el-icon> 历史断代</div>
+              <div class="result-value accent">{{ result.dynasty }}</div>
+            </div>
+          </div>
+
+          <div class="result-section-title">
+            <el-icon :size="14"><Location /></el-icon> 结构特征
+          </div>
+          <div class="feature-tags">
+            <span v-for="f in result.features" :key="f" class="feature-tag">{{ f }}</span>
+          </div>
+
+          <div class="result-section-title">文化内涵解析</div>
+          <div class="culture-desc">
+            <p>{{ result.cultureDesc }}</p>
+          </div>
+        </div>
       </div>
     </div>
 
-    <!-- 演示数据列表 -->
-    <div class="demo-section" v-if="demos.length">
-      <h3>演示解析案例</h3>
-      <div class="demo-list">
-        <el-card
-          v-for="demo in demos"
-          :key="demo.id"
-          class="demo-card"
-          shadow="hover"
-          :class="{ active: result?.id === demo.id }"
-          @click="loadDemo(demo)"
-        >
-          <el-icon size="20"><FolderOpened /></el-icon>
-          <span>{{ demo.title }}</span>
-        </el-card>
-      </div>
+    <!-- 智能修复预留 -->
+    <div class="restore-card glass-card">
+      <h4 class="restore-title">
+        <el-icon :size="14"><Setting /></el-icon> 扩展延伸方向
+      </h4>
+      <p class="restore-desc">
+        架构已为「古建筑智能修复」预留标准接口。未来可通过导入受损三维资产，结合历史文献图库，实现残损构件的AI推演与补全。
+      </p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { Search, DataAnalysis, FolderOpened, WarningFilled, MagicStick } from '@element-plus/icons-vue'
+import { ref, computed } from 'vue'
+import { MagicStick, UploadFilled, InfoFilled, Grid, Clock, Location, Setting } from '@element-plus/icons-vue'
 import { zhixiApi } from '@/api/zhixi'
+import { ElMessage } from 'element-plus'
 
+const fileInputRef = ref(null)
+const uploadedImage = ref(null)
 const selectedFile = ref(null)
-const previewUrl = ref('')
 const analyzing = ref(false)
 const result = ref(null)
-const demos = ref([])
-const hoveredElement = ref(null)
 
-const parsedElements = computed(() => {
-  if (!result.value) return []
-  try {
-    const json = typeof result.value.mockJsonData === 'string'
-      ? JSON.parse(result.value.mockJsonData)
-      : result.value.mockJsonData
-    return json.structural_elements || []
-  } catch {
-    return []
-  }
-})
+const quota = ref({ total: 5, remaining: 4 })
 
-onMounted(async () => {
-  try {
-    const res = await zhixiApi.getDemos()
-    demos.value = res.data || []
-  } catch { /* ignore */ }
-})
-
-function handleFileChange(file) {
-  selectedFile.value = file.raw
-  previewUrl.value = URL.createObjectURL(file.raw)
+function triggerUpload() {
+  if (analyzing.value) return
+  fileInputRef.value?.click()
 }
 
-async function handleAnalyze() {
-  if (!selectedFile.value) return
+function handleFileSelect(e) {
+  const file = e.target.files?.[0]
+  if (!file) return
+  selectedFile.value = file
+  const reader = new FileReader()
+  reader.onload = (ev) => {
+    uploadedImage.value = ev.target.result
+  }
+  reader.readAsDataURL(file)
+}
+
+async function startAnalyze() {
+  if (!selectedFile.value) {
+    ElMessage.warning('请先选择一张古建影像')
+    return
+  }
   analyzing.value = true
+  result.value = null
   try {
     const formData = new FormData()
     formData.append('image', selectedFile.value)
     const res = await zhixiApi.analyze(formData)
-    result.value = res.data
-    ElMessage.success('结构解析完成')
+    result.value = res.data || res
+    quota.value.remaining = Math.max(0, quota.value.remaining - 1)
   } catch {
-    // 拦截器已处理
-  } finally {
-    analyzing.value = false
+    ElMessage.error('分析失败，请稍后重试')
   }
-}
-
-function loadDemo(demo) {
-  result.value = demo
+  analyzing.value = false
 }
 </script>
 
 <style scoped>
-.upload-section {
+.zhixi-page {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+  position: relative;
+}
+
+.zhixi-page::-webkit-scrollbar { width: 6px; }
+.zhixi-page::-webkit-scrollbar-track { background: transparent; }
+.zhixi-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+
+/* ═══ 状态胶囊 ═══ */
+.status-capsule {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-full);
+  padding: 8px 18px;
+  font-size: 13px;
+  color: var(--color-text-sub);
   box-shadow: var(--shadow-card);
-  margin-bottom: var(--spacing-lg);
+  z-index: 5;
 }
 
-.upload-preview {
-  text-align: center;
-}
+.capsule-icon { color: var(--color-accent); }
+.capsule-text { font-weight: 500; color: var(--color-text-main); }
+.capsule-divider { color: var(--color-border); }
+.capsule-quota strong { color: var(--color-accent); }
 
-.upload-preview img {
-  max-width: 100%;
-  max-height: 300px;
-  border-radius: var(--radius-sm);
-}
-
-.file-name {
-  margin-top: var(--spacing-sm);
-  font-size: 13px;
-  color: var(--color-text-sub);
-}
-
-.analyze-btn {
-  margin-top: var(--spacing-md);
-  width: 100%;
-}
-
-.result-section {
-  margin-bottom: var(--spacing-lg);
-}
-
-.result-title {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-size: var(--font-size-subtitle);
-  font-weight: 600;
-  margin-bottom: var(--spacing-md);
+/* ═══ 头部 ═══ */
+.page-header { margin-bottom: var(--spacing-xl); max-width: 600px; }
+.header-title {
+  font-family: var(--font-family-serif);
+  font-size: var(--font-size-title);
   color: var(--color-text-main);
+  margin-bottom: 4px;
 }
+.header-sub { font-size: 14px; color: var(--color-text-sub); }
 
-.insight-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
+/* ═══ 布局 ═══ */
+.zhixi-layout { display: flex; gap: var(--spacing-lg); align-items: flex-start; }
+.upload-section { flex: 1; }
+.result-section { flex: 1; }
 
-.insight-card {
-  padding: var(--spacing-md);
-  border: 1px solid #e8e4df;
-  border-radius: var(--radius-md);
-  transition: border-color var(--transition-fast);
-}
-
-.insight-card:hover {
-  border-color: var(--color-accent-jade);
-}
-
-.insight-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-sm);
-}
-
-.ontology-badge {
-  padding: 2px 10px;
-  border: 2px solid var(--color-accent-jade);
-  border-radius: var(--radius-sm);
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--color-accent-jade);
-}
-
-.bounding-box-info {
-  font-size: 13px;
-  color: var(--color-text-sub);
-  margin-bottom: var(--spacing-sm);
-}
-
-.bounding-box-info code {
-  background: var(--color-bg-base);
-  padding: 2px 6px;
-  border-radius: 2px;
-  font-size: var(--font-size-caption);
-}
-
-.cultural-insight-text {
-  font-size: 14px;
-  line-height: var(--line-height-body);
-  color: var(--color-text-main);
-  padding: var(--spacing-sm) var(--spacing-md);
-  background: rgba(45, 155, 92, 0.05);
-  border-left: 3px solid var(--color-accent-jade);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-}
-
-.json-preview {
-  background: #1e1e1e;
-  color: #d4d4d4;
-  padding: var(--spacing-md);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-caption);
-  overflow-x: auto;
-  max-height: 400px;
-}
-
-/* 预留修复入口 */
-.restoration-placeholder {
-  margin-top: var(--spacing-lg);
-  padding-top: var(--spacing-md);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
-  text-align: center;
+/* ═══ 上传区 ═══ */
+.upload-zone {
+  min-height: 400px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-sm);
-}
-
-.placeholder-hint {
-  font-size: var(--font-size-caption);
-  color: var(--color-text-muted);
-}
-
-.demo-section {
-  margin-top: var(--spacing-lg);
-}
-
-.demo-section h3 {
-  font-size: 16px;
-  margin-bottom: var(--spacing-sm);
-  color: var(--color-text-sub);
-}
-
-.demo-list {
-  display: flex;
-  gap: var(--spacing-sm);
-  flex-wrap: wrap;
-}
-
-.demo-card {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+  justify-content: center;
+  padding: var(--spacing-xl);
+  border: 2px dashed var(--color-border);
   cursor: pointer;
-  padding: 10px var(--spacing-md);
-  font-size: 14px;
-  transition: all var(--transition-fast);
+  text-align: center;
+  transition: all var(--transition-normal);
+}
+
+.upload-zone:hover { border-color: var(--color-accent); }
+
+.upload-icon-circle {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-bg-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-lg);
+  transition: transform var(--transition-normal);
+}
+
+.upload-zone:hover .upload-icon-circle { transform: scale(1.08); }
+
+.upload-zone h3 { font-size: 16px; color: var(--color-text-main); margin-bottom: 4px; }
+.upload-hint { font-size: 13px; color: var(--color-text-muted); }
+.upload-btn { margin-top: var(--spacing-lg); padding: 10px 32px; border-radius: var(--radius-full); cursor: pointer; font-size: 15px; }
+
+/* ═══ 分析中 ═══ */
+.analyzing-state { width: 100%; display: flex; flex-direction: column; align-items: center; }
+.scan-frame {
+  width: 260px;
+  height: 260px;
+  border: 3px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  position: relative;
+  margin-bottom: var(--spacing-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.scan-img { width: 100%; height: 100%; opacity: 0.5; }
+.scan-placeholder { width: 100%; height: 100%; background: var(--color-bg-subtle); }
+.scan-line {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--color-accent);
+  box-shadow: 0 0 16px var(--color-accent);
+}
+
+.analyzing-text {
+  color: var(--color-accent);
+  font-family: var(--font-family-serif);
+  letter-spacing: 1px;
+  animation: pulse 1.5s ease-in-out infinite;
+  font-weight: 500;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ═══ 结果图 ═══ */
+.result-img { width: 100%; height: 100%; border-radius: var(--radius-2xl); }
+
+/* ═══ 结果面板 ═══ */
+.result-card { padding: var(--spacing-xl); }
+.result-title {
+  font-family: var(--font-family-serif);
+  font-size: 22px;
+  color: var(--color-text-main);
+  margin-bottom: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.result-title-icon { color: var(--color-accent); }
+
+.result-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+.result-item {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+}
+
+.result-label {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.result-value { font-size: 18px; font-weight: 500; color: var(--color-text-main); }
+.result-value.accent { color: var(--color-accent); }
+
+.result-section-title {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  margin-bottom: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.feature-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--spacing-lg); }
+.feature-tag {
+  padding: 6px 16px;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--color-text-main);
 }
 
-.demo-card:hover {
-  border-color: var(--color-primary);
+.culture-desc {
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--color-text-sub);
 }
 
-.demo-card.active {
-  border-color: var(--color-primary);
-  background: rgba(184, 38, 31, 0.05);
+/* ═══ 修复预留卡片 ═══ */
+.restore-card {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+}
+.restore-title { font-size: 14px; color: var(--color-text-sub); display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.restore-desc { font-size: 13px; color: var(--color-text-muted); line-height: 1.6; }
+
+@media (max-width: 768px) {
+  .zhixi-layout { flex-direction: column; }
+  .status-capsule { position: static; margin-bottom: var(--spacing-md); justify-content: center; }
 }
 </style>

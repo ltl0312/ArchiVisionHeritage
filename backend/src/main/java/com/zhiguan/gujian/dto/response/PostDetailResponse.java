@@ -17,8 +17,12 @@ public class PostDetailResponse {
     private String glb3dPath;
     private String authorNickname;
     private String authorAvatarUrl;
+    private Long authorId;
     private int likeCount;
+    private int commentCount;
     private boolean likedByMe;
+    private boolean followedByMe;
+    private String tags;
     private List<CommentResponse> comments;
     private String createdAt;
 }

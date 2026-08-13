@@ -10,7 +10,7 @@ public interface NotificationService {
 
     int getUnreadCount(Long userId);
 
-    void markAsRead(Long notificationId);
+    void markAsRead(Long notificationId, Long userId);
 
     void markAllAsRead(Long userId);
 }

@@ -44,6 +44,8 @@ public class SecurityConfig {
                 .requestMatchers("/assets/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/v1/posts/**").permitAll()
                 .requestMatchers("/api/v1/analysis/zhixi/**").permitAll()
+                // 文件上传接口 — 需登录
+                .requestMatchers("/api/v1/upload/**").authenticated()
                 // 管理员专属端点 — 双重保障：URL 层面拦截 + 方法注解 @PreAuthorize
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 // 其余请求需认证

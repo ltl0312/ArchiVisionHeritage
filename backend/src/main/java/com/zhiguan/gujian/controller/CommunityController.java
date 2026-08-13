@@ -40,7 +40,10 @@ public class CommunityController {
     /** 获取帖子详情 */
     @GetMapping("/api/v1/posts/{id}")
     public Result<PostDetailResponse> getPostDetail(@PathVariable Long id, Authentication auth) {
-        Long currentUserId = auth != null ? (Long) auth.getPrincipal() : null;
+        Long currentUserId = null;
+        if (auth != null && auth.getPrincipal() instanceof Long) {
+            currentUserId = (Long) auth.getPrincipal();
+        }
         return Result.ok(communityService.getPostDetail(id, currentUserId));
     }
 

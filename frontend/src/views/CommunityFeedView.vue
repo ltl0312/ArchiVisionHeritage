@@ -1,297 +1,577 @@
 <template>
-  <div class="community-feed">
-    <!-- 文化标语横幅 -->
-    <div class="culture-banner">
-      <h2 class="banner-title">以技术为舟，载文化远航</h2>
-      <p class="banner-sub">每一块瓦当、每一组斗栱，在数字世界里重获新生</p>
-      <div class="banner-actions">
-        <el-button type="primary" size="large" @click="$router.push('/huanzhu')">
-          <el-icon><MagicStick /></el-icon>
-          一键幻筑，创造你的古建
-        </el-button>
-        <el-button v-if="userStore.isLoggedIn" size="large" class="btn-publish" @click="showPublishDialog = true">
-          <el-icon><Edit /></el-icon>
-          发布古建动态
-        </el-button>
+  <div class="community-page animate-fade-in">
+    <!-- 页面头部 -->
+    <header class="page-header">
+      <div class="header-text">
+        <h2 class="header-title">文化游廊</h2>
+        <p class="header-sub">穿梭千年的文明记忆，共赏木石之魂。</p>
       </div>
+      <div class="header-search">
+        <el-input
+          v-model="searchText"
+          placeholder="搜索朝代、形制、名胜..."
+          :prefix-icon="Search"
+          size="large"
+          class="search-input"
+          clearable
+        />
+      </div>
+    </header>
+
+    <!-- 操作行 -->
+    <div class="action-bar">
+      <el-button type="primary" size="large" @click="$router.push('/huanzhu')" class="btn-gradient">
+        <el-icon><MagicStick /></el-icon>
+        一键幻筑，创造你的古建
+      </el-button>
+      <el-button v-if="userStore.isLoggedIn" size="large" class="btn-publish" @click="showPublishDialog = true">
+        <el-icon><Edit /></el-icon>
+        发布古建动态
+      </el-button>
     </div>
 
-    <!-- 帖子瀑布流 — CSS Grid 动态高度 -->
-    <div
-      ref="feedContainerRef"
-      class="architecture-feed-container"
-      v-loading="loading"
-    >
+    <!-- 瀑布流 -->
+    <div class="architecture-feed-container" v-loading="loading">
       <div
         v-for="post in posts"
         :key="post.postId"
         class="feed-card"
-        :ref="el => setCardRef(post.postId, el)"
         @click="$router.push(`/post/${post.postId}`)"
       >
-        <el-image
-          v-if="post.preview2dPath"
-          :src="post.preview2dPath"
-          fit="cover"
-          class="card-cover"
-        >
-          <template #error>
-            <div class="card-cover-placeholder">
-              <el-icon size="48"><PictureFilled /></el-icon>
-              <span>古建掠影</span>
-            </div>
-          </template>
-        </el-image>
-        <div v-else class="card-cover-placeholder">
-          <el-icon size="48"><PictureFilled /></el-icon>
-          <span>古建掠影</span>
+        <!-- 图片区 -->
+        <div class="card-cover-wrap">
+          <el-image v-if="post.preview2dPath" lazy :src="post.preview2dPath" fit="cover" class="card-cover">
+            <template #error>
+              <div class="card-cover-placeholder">
+                <el-icon size="48"><PictureFilled /></el-icon>
+              </div>
+            </template>
+          </el-image>
+          <div v-else class="card-cover-placeholder">
+            <el-icon size="48"><PictureFilled /></el-icon>
+          </div>
+          <!-- 标签浮层 -->
+          <div class="card-tags" v-if="post.tags">
+            <span v-for="tag in parseTags(post.tags)" :key="tag" class="card-tag">{{ tag }}</span>
+          </div>
         </div>
 
+        <!-- 信息区 -->
         <div class="card-body">
-          <div class="card-title">{{ post.title }}</div>
+          <h3 class="card-title">{{ post.title }}</h3>
           <div class="card-meta">
-            <span class="author">
-              <el-avatar size="20" :icon="UserFilled" />
-              {{ post.authorNickname }}
-            </span>
-            <span class="time">{{ post.createdAt }}</span>
-          </div>
-          <div class="card-actions">
-            <button class="action-btn" :class="{ liked: post.likedByMe }" @click.stop="handleLike(post)">
-              <el-icon><StarFilled /></el-icon> {{ post.likeCount }}
-            </button>
-            <button class="action-btn" @click.stop>
-              <el-icon><ChatDotRound /></el-icon> {{ post.commentCount }}
-            </button>
+            <div class="author">
+              <el-avatar :size="24" :icon="UserFilled" />
+              <span>{{ post.authorNickname || '匿名' }}</span>
+            </div>
+            <div class="card-actions">
+              <button class="action-btn" :class="{ liked: post.likedByMe }" @click.stop="handleLike(post)">
+                <el-icon :size="16"><StarFilled v-if="post.likedByMe" /><Star v-else /></el-icon>
+                <span>{{ post.likeCount || 0 }}</span>
+              </button>
+              <button class="action-btn" @click.stop>
+                <el-icon :size="16"><ChatLineSquare /></el-icon>
+                <span>{{ post.commentCount || 0 }}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 空状态 -->
-    <el-empty v-if="!loading && posts.length === 0" description="社区暂无动态，快去创造第一个数字古建吧">
-      <el-button type="primary" @click="$router.push('/huanzhu')">一键幻筑</el-button>
-    </el-empty>
+    <!-- 分页 -->
+    <div v-if="total > pageSize" class="pagination-wrap">
+      <el-pagination
+        background
+        layout="prev, pager, next"
+        :total="total"
+        :page-size="pageSize"
+        v-model:current-page="currentPage"
+        @current-change="fetchPosts"
+      />
+    </div>
 
-    <!-- 发帖弹窗 -->
-    <el-dialog
-      v-model="showPublishDialog"
-      title="发布古建动态"
-      width="600px"
-      :close-on-click-modal="false"
-      destroy-on-close
-    >
-      <el-form :model="postForm" :rules="postRules" ref="postFormRef" label-position="top">
-        <el-form-item label="标题" prop="title">
-          <el-input v-model="postForm.title" placeholder="给你的古建作品起个名字..." maxlength="128" show-word-limit />
-        </el-form-item>
-
-        <el-form-item label="文化描述" prop="content">
+    <!-- 发帖 Dialog -->
+    <el-dialog v-model="showPublishDialog" title="发布古建动态" width="680px" :close-on-click-modal="false" @closed="resetPublishForm" class="publish-dialog">
+      <el-form :model="publishForm" label-position="top" class="publish-form">
+        <!-- 标题 -->
+        <el-form-item label="标题">
           <el-input
-            v-model="postForm.content"
-            type="textarea"
-            :rows="5"
-            placeholder="分享你的古建知识、创作心得或文化见解..."
-            maxlength="2048"
+            v-model="publishForm.title"
+            placeholder="给你的古建记忆起个名字"
+            maxlength="128"
             show-word-limit
+            size="large"
           />
         </el-form-item>
 
-        <el-form-item label="关联3D模型 (可选)">
-          <el-input v-model="postForm.modelAssetId" placeholder="填入幻筑生成的模型资产ID" />
-          <div class="form-tip">一键幻筑成功后可在「数字锦盒」中查看资产ID</div>
+        <!-- 封面图上传 -->
+        <el-form-item label="封面图">
+          <ImageUploader
+            v-model="publishForm.preview2dPath"
+            placeholder="上传封面图（可选）"
+            :show-url-input="true"
+            sub-dir="covers"
+          />
+        </el-form-item>
+
+        <!-- 富文本编辑器 -->
+        <el-form-item label="正文">
+          <div class="editor-wrapper" v-if="showPublishDialog">
+            <QuillEditor
+              v-model:content="publishForm.content"
+              content-type="html"
+              :options="editorOptions"
+              style="min-height: 200px;"
+            />
+          </div>
+          <div class="editor-footer">
+            <span class="char-count">已输入 {{ contentLength }} / 5000 字</span>
+          </div>
+        </el-form-item>
+
+        <!-- 标签输入 -->
+        <el-form-item label="标签">
+          <div class="tags-input-wrapper">
+            <el-tag
+              v-for="tag in publishForm.tags"
+              :key="tag"
+              closable
+              type="primary"
+              @close="removeTag(tag)"
+              class="tag-item"
+            >
+              {{ tag }}
+            </el-tag>
+            <el-input
+              v-if="showTagInput"
+              ref="tagInputRef"
+              v-model="newTag"
+              size="small"
+              style="width: 120px;"
+              @keyup.enter="addTag"
+              @blur="addTag"
+              placeholder="输入标签"
+            />
+            <el-button v-else size="small" @click="showTagInput = true" :icon="Plus">
+              添加标签
+            </el-button>
+          </div>
+          <div class="suggested-tags">
+            <span class="label">推荐：</span>
+            <el-tag
+              v-for="tag in suggestedTags"
+              :key="tag"
+              size="small"
+              type="info"
+              effect="plain"
+              @click="addSuggestedTag(tag)"
+              class="suggest-tag"
+            >
+              {{ tag }}
+            </el-tag>
+          </div>
         </el-form-item>
       </el-form>
-
       <template #footer>
-        <el-button @click="showPublishDialog = false">取 消</el-button>
-        <el-button type="primary" :loading="publishing" @click="handlePublish">
-          <el-icon><Promotion /></el-icon>
+        <el-button @click="showPublishDialog = false">取消</el-button>
+        <el-button type="primary" :loading="publishing" @click="publishPost" class="btn-publish-submit">
           发布动态
         </el-button>
       </template>
     </el-dialog>
-
-    <!-- 分页 -->
-    <div class="pagination-wrapper" v-if="total > pageSize">
-      <el-pagination
-        v-model:current-page="currentPage"
-        :page-size="pageSize"
-        :total="total"
-        layout="prev, pager, next"
-        @current-change="fetchPosts"
-        background
-      />
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick, watch } from 'vue'
-import { PictureFilled, StarFilled, ChatDotRound, MagicStick, UserFilled, Edit, Promotion } from '@element-plus/icons-vue'
+import { ref, computed, nextTick, onMounted, defineAsyncComponent } from 'vue'
+import { useRouter } from 'vue-router'
+import { MagicStick, Edit, Search, PictureFilled, UserFilled, Star, StarFilled, ChatLineSquare, Plus } from '@element-plus/icons-vue'
 import { communityApi } from '@/api/community'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
+import ImageUploader from '@/components/ImageUploader.vue'
 
+const router = useRouter()
 const userStore = useUserStore()
+
+// 懒加载富文本编辑器，仅在打开发布弹窗时下载
+const QuillEditor = defineAsyncComponent(async () => {
+  await import('@vueup/vue-quill/dist/vue-quill.snow.css')
+  return import('@vueup/vue-quill')
+})
 
 const posts = ref([])
 const loading = ref(false)
-const currentPage = ref(1)
-const pageSize = ref(12)
 const total = ref(0)
-const feedContainerRef = ref(null)
-const cardRefs = {}
+const currentPage = ref(1)
+const pageSize = 12
+const searchText = ref('')
 
-function setCardRef(id, el) {
-  if (el) cardRefs[id] = el
-}
-
-/** 根据卡片实际高度动态计算 grid-row-end */
-function calcCardSpans() {
-  nextTick(() => {
-    posts.value.forEach(post => {
-      const el = cardRefs[post.postId]
-      if (!el) return
-      const height = el.offsetHeight
-      const rows = Math.ceil(height / 10)
-      el.style.gridRowEnd = `span ${rows}`
-    })
-  })
-}
-
-watch(posts, () => calcCardSpans())
-
-// ===== 发帖 =====
 const showPublishDialog = ref(false)
 const publishing = ref(false)
-const postFormRef = ref(null)
-
-const postForm = reactive({
+const publishForm = ref({
   title: '',
+  preview2dPath: '',
   content: '',
-  modelAssetId: ''
+  tags: []
 })
 
-const postRules = {
-  title: [
-    { required: true, message: '请输入标题', trigger: 'blur' },
-    { min: 2, max: 128, message: '标题长度 2-128 字符', trigger: 'blur' }
-  ]
+// 标签相关
+const showTagInput = ref(false)
+const newTag = ref('')
+const tagInputRef = ref(null)
+const suggestedTags = ['唐代', '宋代', '明代', '清代', '斗栱', '歇山顶', '庑殿顶', '悬山顶', '佛光寺', '故宫', '园林', '民居']
+
+// 富文本编辑器配置
+const editorOptions = {
+  placeholder: '讲述你与这座建筑的相遇...',
+  modules: {
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      ['blockquote', 'code-block'],
+      [{ 'header': 1 }, { 'header': 2 }],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+      [{ 'indent': '-1' }, { 'indent': '+1' }],
+      ['link', 'image'],
+      ['clean']
+    ]
+  },
+  theme: 'snow'
 }
 
-async function handlePublish() {
-  const valid = await postFormRef.value.validate().catch(() => false)
-  if (!valid) return
+// 计算正文长度
+const contentLength = computed(() => {
+  // 去除 HTML 标签后计算长度
+  const text = publishForm.value.content.replace(/<[^>]*>/g, '')
+  return text.length
+})
 
-  publishing.value = true
-  try {
-    const payload = {
-      title: postForm.title.trim(),
-      content: postForm.content.trim(),
-      modelAssetId: postForm.modelAssetId ? Number(postForm.modelAssetId) : null
-    }
-    await communityApi.createPost(payload)
-    ElMessage.success('动态已提交，待管理员审核通过后公开展示')
-    showPublishDialog.value = false
-    postForm.title = ''
-    postForm.content = ''
-    postForm.modelAssetId = ''
-    await fetchPosts()
-  } finally {
-    publishing.value = false
-  }
+/* ═══ 数据 ═══ */
+function parseTags(tags) {
+  if (!tags) return []
+  if (Array.isArray(tags)) return tags
+  return tags.split(',').map(t => t.trim()).filter(Boolean)
 }
-
-/** 在瀑布流中直接点赞 */
-async function handleLike(post) {
-  try {
-    await communityApi.toggleLike({ targetId: post.postId, targetType: 'POST' })
-    post.likedByMe = !post.likedByMe
-    post.likeCount += post.likedByMe ? 1 : -1
-  } catch { /* ignore */ }
-}
-
-onMounted(() => fetchPosts())
 
 async function fetchPosts() {
   loading.value = true
   try {
-    const res = await communityApi.getPosts(currentPage.value, pageSize.value)
-    posts.value = res.data.records || []
+    const res = await communityApi.getPosts({
+      page: currentPage.value,
+      size: pageSize,
+      keyword: searchText.value || undefined
+    })
+    posts.value = res.data.records || res.data || []
     total.value = res.data.total || 0
-  } finally {
-    loading.value = false
+  } catch { /* ignore */ }
+  loading.value = false
+}
+
+async function handleLike(post) {
+  if (!userStore.isLoggedIn) {
+    ElMessage.warning('请先登录')
+    router.push('/login')
+    return
+  }
+  const prevLiked = post.likedByMe
+  const prevCount = post.likeCount || 0
+  post.likedByMe = !post.likedByMe
+  post.likeCount = prevCount + (post.likedByMe ? 1 : -1)
+  try {
+    await communityApi.toggleLike({ targetId: post.postId, targetType: 'POST' })
+  } catch {
+    post.likedByMe = prevLiked
+    post.likeCount = prevCount
   }
 }
+
+/* ═══ 标签操作 ═══ */
+function addTag() {
+  const tag = newTag.value.trim()
+  if (tag && !publishForm.value.tags.includes(tag)) {
+    if (publishForm.value.tags.length >= 5) {
+      ElMessage.warning('最多添加 5 个标签')
+      return
+    }
+    publishForm.value.tags.push(tag)
+  }
+  newTag.value = ''
+  showTagInput.value = false
+}
+
+function removeTag(tag) {
+  publishForm.value.tags = publishForm.value.tags.filter(t => t !== tag)
+}
+
+function addSuggestedTag(tag) {
+  if (!publishForm.value.tags.includes(tag)) {
+    if (publishForm.value.tags.length >= 5) {
+      ElMessage.warning('最多添加 5 个标签')
+      return
+    }
+    publishForm.value.tags.push(tag)
+  }
+}
+
+/* ═══ 发帖 ═══ */
+async function publishPost() {
+  const { title, content, preview2dPath, tags } = publishForm.value
+  if (!title.trim()) return ElMessage.warning('请输入标题')
+  if (!content || content === '<p><br></p>') return ElMessage.warning('请输入正文内容')
+  if (contentLength.value > 5000) return ElMessage.warning('正文内容不能超过 5000 字')
+
+  publishing.value = true
+  try {
+    await communityApi.createPost({
+      title,
+      content,
+      preview2dPath: preview2dPath || null,
+      tags: tags.length > 0 ? tags.join(',') : null
+    })
+    ElMessage.success('发布成功，等待审核')
+    showPublishDialog.value = false
+    resetPublishForm()
+    fetchPosts()
+  } catch { /* ignore */ }
+  finally {
+    publishing.value = false
+  }
+}
+
+function resetPublishForm() {
+  publishForm.value = { title: '', preview2dPath: '', content: '', tags: [] }
+  showTagInput.value = false
+  newTag.value = ''
+}
+
+onMounted(fetchPosts)
 </script>
 
 <style scoped>
-/* 文化横幅 — 大面积留白，禅意克制 */
-.culture-banner {
-  text-align: center;
-  padding: 48px var(--spacing-lg) var(--spacing-xl);
-  background: linear-gradient(180deg, rgba(0, 21, 41, 0.03) 0%, transparent 100%);
+.community-page {
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
 }
 
-.banner-title {
-  font-size: var(--font-size-title);
-  font-weight: 700;
-  color: var(--color-text-main);
-  letter-spacing: 4px;
-  margin-bottom: var(--spacing-sm);
-}
+.community-page::-webkit-scrollbar { width: 6px; }
+.community-page::-webkit-scrollbar-track { background: transparent; }
+.community-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+.community-page::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.18); }
 
-.banner-sub {
-  font-size: 15px;
-  color: var(--color-text-sub);
-  margin-bottom: var(--spacing-lg);
-  line-height: var(--line-height-body);
-}
+[data-theme="dark"] .community-page::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
+[data-theme="dark"] .community-page::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
 
-.banner-actions {
+/* ═══ 头部 ═══ */
+.page-header {
   display: flex;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-lg);
+  gap: var(--spacing-lg);
+}
+
+.header-title {
+  font-family: var(--font-family-serif);
+  font-size: var(--font-size-title);
+  color: var(--color-text-main);
+  margin-bottom: 4px;
+}
+
+.header-sub {
+  font-size: 14px;
+  color: var(--color-text-sub);
+}
+
+.header-search {
+  width: 300px;
+  flex-shrink: 0;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  border-radius: var(--radius-full);
+  background: var(--color-surface);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+}
+
+/* ═══ 操作行 ═══ */
+.action-bar {
+  display: flex;
   gap: var(--spacing-md);
-  flex-wrap: wrap;
+  margin-bottom: var(--spacing-xl);
 }
 
 .btn-publish {
-  border-color: var(--color-secondary);
-  color: var(--color-secondary);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
 }
+
 .btn-publish:hover {
-  background: rgba(181, 142, 54, 0.1);
-  border-color: var(--color-secondary);
+  background: var(--color-accent-soft);
+  border-color: var(--color-accent);
 }
 
-.form-tip {
-  font-size: var(--font-size-caption);
-  color: var(--color-text-muted);
-  margin-top: var(--spacing-xs);
-}
-
-.card-cover {
+/* ═══ 卡片封面 ═══ */
+.card-cover-wrap {
+  position: relative;
   width: 100%;
-  min-height: 180px;
-  background: var(--color-bg-subtle);
+  overflow: hidden;
+}
+
+.card-cover-wrap .el-image {
+  width: 100%;
+  display: block;
 }
 
 .card-cover-placeholder {
+  width: 100%;
+  min-height: 200px;
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 180px;
   background: var(--color-bg-subtle);
   color: var(--color-text-muted);
-  gap: var(--spacing-sm);
+}
+
+/* ═══ 分页 ═══ */
+.pagination-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--spacing-xl);
+}
+
+/* ═══ 发帖对话框 ═══ */
+.publish-dialog :deep(.el-dialog) {
+  border-radius: var(--radius-xl);
+}
+
+.publish-dialog :deep(.el-dialog__header) {
+  padding: var(--spacing-lg) var(--spacing-xl);
+  border-bottom: 1px solid var(--color-border);
+  margin: 0;
+}
+
+.publish-dialog :deep(.el-dialog__body) {
+  padding: var(--spacing-xl);
+}
+
+.publish-dialog :deep(.el-dialog__footer) {
+  padding: var(--spacing-md) var(--spacing-xl) var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+}
+
+.publish-form {
+  max-height: 60vh;
+  overflow-y: auto;
+  padding-right: var(--spacing-sm);
+}
+
+.publish-form::-webkit-scrollbar { width: 4px; }
+.publish-form::-webkit-scrollbar-track { background: transparent; }
+.publish-form::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }
+
+/* ═══ 富文本编辑器 ═══ */
+.editor-wrapper {
+  width: 100%;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+}
+
+.editor-wrapper :deep(.ql-toolbar) {
+  border: none;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+}
+
+.editor-wrapper :deep(.ql-container) {
+  border: none;
+  font-family: var(--font-family-base);
   font-size: 14px;
 }
 
-.pagination-wrapper {
+.editor-wrapper :deep(.ql-editor) {
+  min-height: 200px;
+  padding: var(--spacing-md);
+}
+
+.editor-wrapper :deep(.ql-editor.ql-blank::before) {
+  color: var(--color-text-muted);
+  font-style: normal;
+}
+
+.editor-footer {
   display: flex;
-  justify-content: center;
-  padding: var(--spacing-lg) 0;
+  justify-content: flex-end;
+  margin-top: var(--spacing-xs);
+}
+
+.char-count {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+/* ═══ 标签输入 ═══ */
+.tags-input-wrapper {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: center;
+  padding: var(--spacing-sm);
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-md);
+  min-height: 48px;
+}
+
+.tag-item {
+  margin: 0;
+}
+
+.suggested-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+  align-items: center;
+  margin-top: var(--spacing-sm);
+}
+
+.suggested-tags .label {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  margin-right: var(--spacing-xs);
+}
+
+.suggest-tag {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.suggest-tag:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+  background: var(--color-accent-soft);
+}
+
+.btn-publish-submit {
+  min-width: 100px;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+  }
+  .header-search {
+    width: 100%;
+  }
+  .action-bar {
+    flex-wrap: wrap;
+  }
+  .publish-dialog :deep(.el-dialog) {
+    width: 95% !important;
+    margin: 0 auto;
+  }
 }
 </style>

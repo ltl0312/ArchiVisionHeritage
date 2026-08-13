@@ -19,8 +19,11 @@ local limit = tonumber(ARGV[1])
 local ttl = tonumber(ARGV[2])
 
 local current = redis.call('GET', key)
-if current and tonumber(current) >= limit then
-    return 0
+if current then
+    local currentNum = tonumber(current)
+    if currentNum and currentNum >= limit then
+        return 0
+    end
 end
 
 local count = redis.call('INCR', key)

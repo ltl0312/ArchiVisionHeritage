@@ -12,4 +12,8 @@ public class CreatePostRequest {
     private String content;
 
     private Long modelAssetId;
+
+    private String preview2dPath;
+
+    private String tags;
 }

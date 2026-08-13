@@ -1,38 +1,37 @@
 <template>
-  <div class="login-page">
-    <div class="login-card">
+  <div class="login-page animate-fade-in">
+    <div class="login-card glass-card">
       <h1 class="login-title">智观·古建</h1>
       <p class="login-subtitle">数字孪生与文化传承</p>
 
-      <el-tabs v-model="activeTab" class="login-tabs">
+      <el-tabs v-model="activeTab" class="login-tabs" stretch>
         <el-tab-pane label="登录" name="login">
-          <el-form :model="loginForm" label-position="top">
-            <el-form-item label="用户名">
-              <el-input v-model="loginForm.username" placeholder="请输入用户名" />
+          <el-form :model="loginForm" label-position="top" @submit.prevent="handleLogin">
+            <el-form-item label="用户名或邮箱">
+              <el-input v-model="loginForm.username" placeholder="请输入用户名" size="large" />
             </el-form-item>
             <el-form-item label="密码">
-              <el-input v-model="loginForm.password" type="password" placeholder="请输入密码"
-                        @keyup.enter="handleLogin" />
+              <el-input v-model="loginForm.password" type="password" show-password placeholder="请输入密码" size="large" />
             </el-form-item>
-            <el-button type="primary" :loading="loading" block @click="handleLogin">
-              登 录
+            <el-button type="primary" size="large" class="login-submit-btn" :loading="loading" @click="handleLogin">
+              登入古建世界
             </el-button>
           </el-form>
         </el-tab-pane>
 
         <el-tab-pane label="注册" name="register">
-          <el-form :model="regForm" label-position="top">
+          <el-form :model="registerForm" label-position="top" @submit.prevent="handleRegister">
             <el-form-item label="用户名">
-              <el-input v-model="regForm.username" placeholder="2-64个字符" />
+              <el-input v-model="registerForm.username" placeholder="创建用户名" size="large" />
             </el-form-item>
-            <el-form-item label="昵称">
-              <el-input v-model="regForm.nickname" placeholder="显示名称" />
+            <el-form-item label="邮箱">
+              <el-input v-model="registerForm.email" placeholder="example@mail.com" size="large" />
             </el-form-item>
             <el-form-item label="密码">
-              <el-input v-model="regForm.password" type="password" placeholder="至少6位" />
+              <el-input v-model="registerForm.password" type="password" show-password placeholder="至少6位" size="large" />
             </el-form-item>
-            <el-button type="primary" :loading="loading" block @click="handleRegister">
-              注 册
+            <el-button type="primary" size="large" class="login-submit-btn" :loading="loading" @click="handleRegister">
+              注册新账号
             </el-button>
           </el-form>
         </el-tab-pane>
@@ -44,85 +43,97 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
 import { useUserStore } from '@/stores/user'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const userStore = useUserStore()
 
 const activeTab = ref('login')
 const loading = ref(false)
-
 const loginForm = ref({ username: '', password: '' })
-const regForm = ref({ username: '', password: '', nickname: '' })
+const registerForm = ref({ username: '', email: '', password: '' })
 
 async function handleLogin() {
   if (!loginForm.value.username || !loginForm.value.password) {
-    return ElMessage.warning('请填写用户名和密码')
+    return ElMessage.warning('请填写完整信息')
   }
   loading.value = true
   try {
     await userStore.login(loginForm.value)
     ElMessage.success('登录成功')
-    router.push('/')
+    router.push('/home')
   } catch {
-    // 拦截器已处理错误提示
-  } finally {
-    loading.value = false
+    ElMessage.error('登录失败，请检查账号密码')
   }
+  loading.value = false
 }
 
 async function handleRegister() {
-  if (!regForm.value.username || !regForm.value.password || !regForm.value.nickname) {
+  const { username, email, password } = registerForm.value
+  if (!username || !email || !password) {
     return ElMessage.warning('请填写完整信息')
+  }
+  if (password.length < 6) {
+    return ElMessage.warning('密码至少6位')
   }
   loading.value = true
   try {
-    await userStore.register(regForm.value)
+    await userStore.register(registerForm.value)
     ElMessage.success('注册成功，请登录')
     activeTab.value = 'login'
-    loginForm.value.username = regForm.value.username
-  } finally {
-    loading.value = false
+  } catch {
+    ElMessage.error('注册失败')
   }
+  loading.value = false
 }
 </script>
 
 <style scoped>
 .login-page {
-  display: flex;
-  justify-content: center;
-  align-items: center;
   min-height: 100vh;
-  background: linear-gradient(180deg, #f5f0e8 0%, #e8e4df 50%, #d5cfc7 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-lg);
 }
 
 .login-card {
   width: 420px;
   padding: 40px;
-  background: var(--color-surface);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-modal);
 }
 
 .login-title {
   text-align: center;
+  font-family: var(--font-family-serif);
   font-size: 28px;
   font-weight: 700;
-  color: var(--color-primary);
+  color: var(--color-accent);
   letter-spacing: 4px;
-  margin-bottom: var(--spacing-xs);
+  margin-bottom: 4px;
 }
 
 .login-subtitle {
   text-align: center;
+  font-size: 13px;
   color: var(--color-text-muted);
+  letter-spacing: 2px;
   margin-bottom: var(--spacing-lg);
-  font-size: 14px;
-  line-height: var(--line-height-body);
 }
 
-.login-tabs :deep(.el-tabs__nav-wrap::after) {
-  height: 1px;
+.login-tabs {
+  margin-bottom: var(--spacing-xs);
+}
+
+.login-submit-btn {
+  width: 100%;
+  margin-top: var(--spacing-sm);
+}
+
+@media (max-width: 480px) {
+  .login-card {
+    width: 100%;
+    padding: 24px;
+  }
 }
 </style>

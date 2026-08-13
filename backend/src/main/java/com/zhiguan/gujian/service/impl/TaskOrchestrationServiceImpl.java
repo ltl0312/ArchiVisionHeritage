@@ -3,17 +3,14 @@ package com.zhiguan.gujian.service.impl;
 import com.zhiguan.gujian.dto.response.TaskStatusResponse;
 import com.zhiguan.gujian.mapper.AiTaskMapper;
 import com.zhiguan.gujian.mapper.ModelAssetMapper;
-import com.zhiguan.gujian.mapper.NotificationMapper;
 import com.zhiguan.gujian.model.AiTask;
 import com.zhiguan.gujian.model.ModelAsset;
-import com.zhiguan.gujian.model.Notification;
 import com.zhiguan.gujian.service.IdempotentLockService;
 import com.zhiguan.gujian.service.TaskOrchestrationService;
 import com.zhiguan.gujian.service.NotificationService;
 import com.zhiguan.gujian.utils.AncientDictUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -47,9 +44,9 @@ public class TaskOrchestrationServiceImpl implements TaskOrchestrationService {
 
     private final AiTaskMapper aiTaskMapper;
     private final ModelAssetMapper modelAssetMapper;
-    private final NotificationMapper notificationMapper;
     private final NotificationService notificationService;
     private final IdempotentLockService idempotentLockService;
+    private final TaskAsyncExecutor taskAsyncExecutor;
 
     /**
      * 提交幻筑任务 — Redis 幂等守护 + PENDING 状态写入
@@ -88,72 +85,10 @@ public class TaskOrchestrationServiceImpl implements TaskOrchestrationService {
 
         log.info("幻筑任务 {} 已入队，原始Prompt: {} → 增强后: {}", task.getId(), prompt, enhancedPrompt);
 
-        // 5. 提交至异步线程池执行后续生成流程
-        executeAsync(task.getId(), prompt);
+        // 5. 提交至异步线程池执行后续生成流程（使用独立的异步执行器解决 @Async 自调用失效问题）
+        taskAsyncExecutor.executeAsync(task.getId(), prompt, userId);
 
         return new SubmitResult(task.getId(), false);
-    }
-
-    /**
-     * 异步执行 AI 3D 模型生成 — 状态机核心
-     *
-     * PENDING → RUNNING：任务开始营造
-     *   ↓
-     * 模拟远端 AI 3D 生成（实际接入时应使用 RestTemplate 调用 Meshy 等 API）
-     *   ↓
-     * SUCCESS：写入 model_asset + notification 站内信 + 释放幂等锁
-     * FAILED：记录异常信息 + 释放幂等锁
-     */
-    @Async("taskExecutor")
-    public void executeAsync(Long taskId, String originalPrompt) {
-        AiTask task = aiTaskMapper.selectById(taskId);
-        if (task == null) {
-            log.warn("幻筑任务 {} 不存在，跳过执行", taskId);
-            return;
-        }
-
-        try {
-            // --- PENDING → RUNNING ---
-            task.setStatus("RUNNING");
-            aiTaskMapper.updateById(task);
-            log.info("幻筑任务 {} 状态更新为 RUNNING，营造中...", taskId);
-
-            // 模拟 AI 3D 模型生成耗时（实际接入 Meshy API 时应使用 RestTemplate 远端调用）
-            Thread.sleep(3000 + (long) (Math.random() * 4000));
-
-            // --- RUNNING → SUCCESS ---
-            ModelAsset asset = new ModelAsset();
-            asset.setTaskId(taskId);
-            asset.setPreview2dPath("/assets/preview/huanzhu_" + taskId + "_preview.png");
-            asset.setGlb3dPath("/assets/models/huanzhu_" + taskId + "_model.glb");
-            modelAssetMapper.insert(asset);
-
-            task.setStatus("SUCCESS");
-            aiTaskMapper.updateById(task);
-
-            // 写入站内信通知 — "数字锦盒已送达"
-            Notification notification = new Notification();
-            notification.setUserId(task.getUserId());
-            notification.setTaskId(taskId);
-            notification.setMessage("您的古建数字锦盒已送达，请拆阅");
-            notification.setIsRead(false);
-            notificationMapper.insert(notification);
-
-            log.info("幻筑任务 {} 营造成功，资产ID: {}, 封面: {}, 3D模型: {}",
-                    taskId, asset.getId(), asset.getPreview2dPath(), asset.getGlb3dPath());
-
-        } catch (Exception e) {
-            log.error("幻筑任务 {} 营造失败", taskId, e);
-            task.setStatus("FAILED");
-            task.setErrorMessage(e.getMessage());
-            aiTaskMapper.updateById(task);
-        } finally {
-            // 无论成败，释放幂等锁（用户可再次提交相同描述词）
-            if (originalPrompt != null) {
-                idempotentLockService.release(task.getUserId(), originalPrompt);
-                log.debug("幻筑任务 {} 幂等锁已释放", taskId);
-            }
-        }
     }
 
     /**

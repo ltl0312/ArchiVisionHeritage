@@ -3,6 +3,7 @@ package com.zhiguan.gujian.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.zhiguan.gujian.dto.response.NotificationResponse;
+import com.zhiguan.gujian.exception.CulturalApiException;
 import com.zhiguan.gujian.mapper.NotificationMapper;
 import com.zhiguan.gujian.model.Notification;
 import com.zhiguan.gujian.service.NotificationService;
@@ -47,11 +48,13 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     @Transactional
-    public void markAsRead(Long notificationId) {
-        Notification n = new Notification();
-        n.setId(notificationId);
-        n.setIsRead(true);
-        notificationMapper.updateById(n);
+    public void markAsRead(Long notificationId, Long userId) {
+        Notification notification = notificationMapper.selectById(notificationId);
+        if (notification == null || !notification.getUserId().equals(userId)) {
+            throw new CulturalApiException(403, "无权操作此通知");
+        }
+        notification.setIsRead(true);
+        notificationMapper.updateById(notification);
     }
 
     @Override

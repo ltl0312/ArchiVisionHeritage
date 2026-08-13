@@ -6,6 +6,7 @@ import com.zhiguan.gujian.mapper.AnalysisDemoMapper;
 import com.zhiguan.gujian.model.AnalysisDemo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 import org.springframework.util.LinkedMultiValueMap;
@@ -30,8 +31,9 @@ public class ZhiXiController {
     private final RestTemplate restTemplate;
     private final AnalysisDemoMapper analysisDemoMapper;
 
-    /** Python VGGT API 地址 */
-    private static final String VGGT_API_URL = "http://127.0.0.1:8000/v1/analyze";
+    /** Python VGGT API 地址（可通过 vggt.api.url 配置或 VGGT_API_URL 环境变量覆盖） */
+    @Value("${vggt.api.url:http://127.0.0.1:8000/v1/analyze}")
+    private String vggtApiUrl;
 
     /**
      * VGGT 结构分析 — 转发图片至 Python 端进行真实解析
@@ -59,7 +61,7 @@ public class ZhiXiController {
 
             // 调用 Python VGGT API 进行结构分析
             ResponseEntity<Map> response = restTemplate.exchange(
-                    VGGT_API_URL,
+                    vggtApiUrl,
                     HttpMethod.POST,
                     requestEntity,
                     Map.class

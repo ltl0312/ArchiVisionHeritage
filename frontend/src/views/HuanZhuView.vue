@@ -1,387 +1,391 @@
 <template>
-  <div class="page-container huanzhu-page">
-    <div class="page-header-center">
-      <h1>
-        <el-icon size="28"><MagicStick /></el-icon>
-        一键幻筑
-      </h1>
-      <p>输入古建描述，AI 为您生成精美的 3D 模型</p>
+  <div class="huanzhu-page animate-fade-in">
+    <header class="page-header">
+      <h2 class="header-title">一键幻筑</h2>
+      <p class="header-sub">输入文字描述，AI 3D 大模型将为您凭空建构历史的殿堂。</p>
+    </header>
+
+    <div class="huanzhu-layout">
+      <!-- 左侧控制面板 -->
+      <div class="control-panel glass-card">
+        <div class="prompt-header">
+          <span class="prompt-label">构筑灵感</span>
+          <button class="enhance-btn" @click="enhancePrompt">
+            <el-icon :size="12"><MagicStick /></el-icon>
+            智能润色提示词
+          </button>
+        </div>
+
+        <textarea
+          v-model="prompt"
+          placeholder="请描述您心中的古建筑，例如：唐代重檐歇山顶大殿..."
+          class="prompt-area"
+        ></textarea>
+
+        <button
+          class="btn-gradient generate-btn"
+          :disabled="generating || !prompt"
+          @click="handleGenerate"
+        >
+          <template v-if="generating">
+            <el-icon :size="20" class="spin"><Loading /></el-icon>
+            正在演算三维拓扑...
+          </template>
+          <template v-else>
+            <el-icon :size="20"><Box /></el-icon>
+            开始幻筑
+          </template>
+        </button>
+      </div>
+
+      <!-- 右侧预览区 -->
+      <div class="preview-panel">
+        <div class="preview-grid-bg"></div>
+
+        <template v-if="!taskResult && !generating">
+          <div class="preview-idle">
+            <el-icon :size="64" class="idle-icon"><Box /></el-icon>
+            <p class="idle-text">等待召唤文明的虚影</p>
+          </div>
+        </template>
+
+        <template v-if="generating">
+          <div class="preview-generating">
+            <div class="spinner-ring"></div>
+            <p class="generating-text">正在重组榫卯结构...</p>
+          </div>
+        </template>
+
+        <template v-if="taskResult">
+          <div class="preview-result">
+            <el-image
+              v-if="taskResult.previewPath"
+              :src="taskResult.previewPath"
+              fit="cover"
+              class="result-img"
+            />
+            <div class="result-overlay">
+              <div class="result-actions">
+                <button class="result-btn">导出 OBJ/GLTF</button>
+                <button class="result-btn accent">推演材质</button>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
     </div>
 
-    <div class="huanzhu-workspace">
-      <!-- 左侧控制区 -->
-      <div class="huanzhu-left">
-        <div class="input-section">
-          <!-- 描述词输入中枢 -->
-          <div class="prompt-input-wrapper">
-            <label class="input-label">描绘您心中的殿宇</label>
-            <el-input
-              v-model="prompt"
-              type="textarea"
-              :rows="4"
-              placeholder="例如：唐代风格的重檐歇山顶大殿，配有绿琉璃瓦与朱红色的回廊..."
-              :disabled="isPolling"
-              class="prompt-textarea"
-            />
-          </div>
-
-          <!-- 智能提示标签 (Smart Prompt Chips) -->
-          <div class="prompt-chips-section">
-            <p class="chips-label">文化要素快捷填入</p>
-
-            <div class="chips-group">
-              <span class="chips-category">朝代风格</span>
-              <div class="chips-row">
-                <span class="prompt-chip" @click="appendPrompt('唐代风格，恢弘大气')">唐代</span>
-                <span class="prompt-chip" @click="appendPrompt('宋代风格，秀丽精巧')">宋代</span>
-                <span class="prompt-chip" @click="appendPrompt('明清风格，规整严谨')">明清</span>
-              </div>
-            </div>
-
-            <div class="chips-group">
-              <span class="chips-category">屋顶样式</span>
-              <div class="chips-row">
-                <span class="prompt-chip" @click="appendPrompt('重檐歇山顶')">歇山顶</span>
-                <span class="prompt-chip" @click="appendPrompt('悬山顶')">悬山顶</span>
-                <span class="prompt-chip" @click="appendPrompt('庑殿顶')">庑殿顶</span>
-                <span class="prompt-chip" @click="appendPrompt('硬山顶')">硬山顶</span>
-              </div>
-            </div>
-
-            <div class="chips-group">
-              <span class="chips-category">色彩倾向</span>
-              <div class="chips-row">
-                <span class="prompt-chip" @click="appendPrompt('朱红大漆，黄琉璃瓦')">朱红·琉璃</span>
-                <span class="prompt-chip" @click="appendPrompt('青砖黛瓦，素雅质朴')">青砖黛瓦</span>
-                <span class="prompt-chip" @click="appendPrompt('金碧辉煌，皇家气度')">金碧辉煌</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 执行引擎按钮 -->
-          <el-button
-            type="primary"
-            size="large"
-            :loading="isPolling"
-            :disabled="!prompt.trim()"
-            @click="handleSubmit"
-            class="generate-btn"
-          >
-            <el-icon v-if="!isPolling"><MagicStick /></el-icon>
-            {{ isPolling ? '正在幻筑...' : '生成三维幻境' }}
-          </el-button>
-        </div>
-      </div>
-
-      <!-- 右侧预览/状态区 -->
-      <div class="huanzhu-right">
-        <!-- 轮询状态 — 宝塔构建动画 -->
-        <div v-if="isPolling" class="loading-section glass-panel">
-          <div class="dream-loading">
-            <p class="loading-text">{{ currentLoadingText }}</p>
-            <div class="pagoda-building">
-              <div class="pagoda-layer" v-for="i in 6" :key="i"></div>
-            </div>
-            <p class="loading-sub">正在为您雕琢飞檐，构建数字孪生...</p>
-          </div>
-        </div>
-
-        <!-- 生成结果 -->
-        <div v-if="taskResult && taskResult.status === 'SUCCESS'" class="result-section glass-panel">
-          <el-result
-            icon="success"
-            title="幻筑完成！"
-            sub-title="您的数字古建已生成，可前往社区发布展示"
-          >
-            <template #extra>
-              <el-button type="primary" @click="viewAsset">
-                <el-icon><View /></el-icon>
-                查看 3D 模型
-              </el-button>
-              <el-button @click="$router.push('/home')">返回社区</el-button>
-            </template>
-          </el-result>
-        </div>
-
-        <!-- 失败提示 -->
-        <div v-if="taskResult && taskResult.status === 'FAILED'" class="result-section glass-panel">
-          <el-result
-            icon="error"
-            title="生成失败"
-            :sub-title="taskResult.errorMessage || '请调整描述词后重试'"
-          >
-            <template #extra>
-              <el-button type="primary" @click="resetForm">重新幻筑</el-button>
-            </template>
-          </el-result>
-        </div>
-
-        <!-- 空闲态占位 -->
-        <div v-if="!isPolling && !taskResult" class="placeholder-section glass-panel">
-          <div class="placeholder-icon">&#x2302;</div>
-          <p class="placeholder-title">3D 预览区</p>
-          <p class="placeholder-desc">
-            在左侧输入古建描述词，AI 将为您生成精美的三维模型。<br>
-            支持 WebGL PBR 物理渲染，琉璃瓦高光与木质漫反射真实呈现。
-          </p>
-        </div>
-      </div>
+    <!-- 扩展方向 -->
+    <div class="extend-card glass-card">
+      <h4><el-icon :size="14"><Setting /></el-icon> 扩展延伸方向</h4>
+      <p>架构已为「古建筑智能修复」预留标准接口。未来可通过导入受损三维资产，结合历史文献图库，实现残损构件的AI推演与补全。</p>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onUnmounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { MagicStick, View } from '@element-plus/icons-vue'
+import { ref, onUnmounted } from 'vue'
+import { MagicStick, Box, Loading, Setting } from '@element-plus/icons-vue'
 import { huanzhuApi } from '@/api/huanzhu'
-import { useNotificationStore } from '@/stores/notification'
-
-const notifStore = useNotificationStore()
+import { ElMessage } from 'element-plus'
 
 const prompt = ref('')
-const isPolling = ref(false)
-const taskId = ref(null)
+const generating = ref(false)
 const taskResult = ref(null)
 
-const loadingTexts = [
-  '挥毫落纸墨痕新...',
-  '探寻古建的营造密码...',
-  '正在为您雕琢飞檐...',
-  '榫卯交错，匠心独运...',
-  '千年宫阙，一梦重现...',
-  '琉璃瓦上，流光溢彩...',
-]
+let pollTimer = null
+let pollCount = 0
+const MAX_POLL = 60 // 最多轮询 60 次（2分钟）
 
-const currentLoadingText = ref(loadingTexts[0])
-let loadingTextTimer = null
-
-function startLoadingTextRotation() {
-  let idx = 0
-  loadingTextTimer = setInterval(() => {
-    idx = (idx + 1) % loadingTexts.length
-    currentLoadingText.value = loadingTexts[idx]
-  }, 2500)
-}
-
-function stopLoadingTextRotation() {
-  if (loadingTextTimer) {
-    clearInterval(loadingTextTimer)
-    loadingTextTimer = null
+function enhancePrompt() {
+  if (!prompt.value) {
+    prompt.value = '一座唐代风格的重檐歇山顶大殿，面阔七间，红柱白墙，斗栱雄大，屹立在苍翠的松林之中，夕阳余晖...'
+  } else {
+    prompt.value = `[优化] ${prompt.value}，补充细节：木构卯榫清晰可见，覆青灰瓦，基座为汉白玉须弥座，呈现历史的厚重感与皇家气度。`
   }
 }
 
-onUnmounted(() => stopLoadingTextRotation())
-
-/** 追加智能提示标签到输入框 */
-function appendPrompt(tag) {
-  const current = prompt.value.trim()
-  if (current && !current.endsWith('，') && !current.endsWith(',')) {
-    prompt.value = current + '，'
-  }
-  prompt.value = (prompt.value + tag).replace(/^,/, '')
-}
-
-async function handleSubmit() {
-  if (!prompt.value.trim()) return ElMessage.warning('请输入建筑描述')
-  if (isPolling.value) return
-
-  isPolling.value = true
+async function handleGenerate() {
+  if (!prompt.value) return
+  generating.value = true
   taskResult.value = null
-  startLoadingTextRotation()
-
   try {
-    const res = await huanzhuApi.submit(prompt.value.trim())
-    taskId.value = res.data.taskId
-
-    // 幂等检测：如果是重复提交，直接查看已有任务状态
-    if (res.data.duplicate) {
-      ElMessage.info('检测到相同的幻筑任务已在处理中，为您定位到已有任务')
-    } else {
-      ElMessage.info('任务已提交，正在为您生成古建模型...')
+    const res = await huanzhuApi.submit(prompt.value)
+    if (res.data?.duplicate) {
+      ElMessage.info('检测到相同的幻筑任务已在处理中')
     }
-
-    pollInterval = setInterval(pollTaskStatus, 5000)
+    pollTaskStatus(res.data?.taskId)
   } catch {
-    isPolling.value = false
-    stopLoadingTextRotation()
+    ElMessage.error('任务提交失败')
+    generating.value = false
   }
 }
 
-let pollInterval = null
+async function pollTaskStatus(taskId) {
+  if (!taskId) { generating.value = false; return }
+  pollCount = 0
 
-async function pollTaskStatus() {
-  if (!taskId.value) return
-
-  try {
-    const res = await huanzhuApi.getTaskStatus(taskId.value)
-    taskResult.value = res.data
-
-    if (res.data.status === 'SUCCESS') {
-      clearInterval(pollInterval)
-      isPolling.value = false
-      stopLoadingTextRotation()
-      notifStore.checkTaskSuccess(res.data)
-      ElMessage.success('幻筑完成！数字锦盒已送达')
-    } else if (res.data.status === 'FAILED') {
-      clearInterval(pollInterval)
-      isPolling.value = false
-      stopLoadingTextRotation()
+  const check = async () => {
+    if (++pollCount > MAX_POLL) {
+      ElMessage.warning('任务处理超时，请稍后查看通知')
+      generating.value = false
+      return
     }
-  } catch {
-    clearInterval(pollInterval)
-    isPolling.value = false
-    stopLoadingTextRotation()
+    try {
+      const res = await huanzhuApi.getTaskStatus(taskId)
+      const status = res.data?.status
+      if (status === 'SUCCESS') {
+        taskResult.value = res.data
+        generating.value = false
+        return
+      }
+      if (status === 'FAILED') {
+        ElMessage.error('幻筑任务失败，请重试')
+        generating.value = false
+        return
+      }
+      pollTimer = setTimeout(check, 2000)
+    } catch {
+      generating.value = false
+    }
   }
+  check()
 }
 
-function viewAsset() {
-  window.open('/notifications', '_self')
-}
-
-function resetForm() {
-  isPolling.value = false
-  taskResult.value = null
-  taskId.value = null
-  stopLoadingTextRotation()
-  if (pollInterval) clearInterval(pollInterval)
-}
+onUnmounted(() => {
+  if (pollTimer) {
+    clearTimeout(pollTimer)
+    pollTimer = null
+  }
+})
 </script>
 
 <style scoped>
 .huanzhu-page {
-  max-width: 1200px;
+  height: 100%;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
 }
 
-/* 左右分栏创作工作区 */
-.huanzhu-workspace {
-  display: flex;
-  gap: var(--spacing-lg);
-  align-items: flex-start;
-}
+.huanzhu-page::-webkit-scrollbar { width: 6px; }
+.huanzhu-page::-webkit-scrollbar-track { background: transparent; }
+.huanzhu-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
 
-/* 左侧控制区 — 固定 400px */
-.huanzhu-left {
-  width: 400px;
-  flex-shrink: 0;
-}
-
-.input-section {
-  background: var(--color-surface);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  box-shadow: var(--shadow-card);
-}
-
-.input-label {
-  display: block;
-  font-size: 15px;
-  font-weight: 600;
+.page-header { margin-bottom: var(--spacing-xl); }
+.header-title {
+  font-family: var(--font-family-serif);
+  font-size: var(--font-size-title);
   color: var(--color-text-main);
-  margin-bottom: var(--spacing-sm);
+  margin-bottom: 4px;
 }
+.header-sub { font-size: 14px; color: var(--color-text-sub); }
 
-.prompt-textarea {
-  margin-bottom: var(--spacing-md);
-}
+/* ═══ 布局 ═══ */
+.huanzhu-layout { display: flex; gap: var(--spacing-lg); min-height: 500px; }
 
-.prompt-textarea :deep(.el-textarea__inner) {
-  min-height: 100px;
-  line-height: var(--line-height-body);
-  font-size: 14px;
-}
-
-/* 智能提示标签 */
-.prompt-chips-section {
-  margin-bottom: var(--spacing-md);
-}
-
-.chips-label {
-  font-size: 13px;
-  color: var(--color-text-sub);
-  margin-bottom: var(--spacing-sm);
-  display: block;
-}
-
-.chips-group {
-  margin-bottom: var(--spacing-sm);
-}
-
-.chips-category {
-  font-size: var(--font-size-caption);
-  color: var(--color-text-muted);
-  margin-bottom: var(--spacing-xs);
-  display: block;
-}
-
-.chips-row {
+/* ═══ 控制面板 ═══ */
+.control-panel {
+  width: 380px;
+  min-width: 340px;
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-xs);
+  flex-direction: column;
+  padding: var(--spacing-xl);
 }
 
-/* 生成按钮 */
-.generate-btn {
-  width: 100%;
-  height: 48px;
-  font-size: 16px;
-  letter-spacing: 2px;
+.prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--spacing-md);
+}
+
+.prompt-label { font-size: 15px; font-weight: 500; color: var(--color-text-main); }
+
+.enhance-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  border: 1px solid var(--color-accent);
   border-radius: var(--radius-full);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
 }
 
-/* 右侧预览区 — 占据剩余空间 */
-.huanzhu-right {
+.enhance-btn:hover { background: var(--color-accent); color: #FFF; }
+
+.prompt-area {
   flex: 1;
-  min-height: 500px;
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--color-text-main);
+  background: var(--color-bg-subtle);
+  resize: none;
+  outline: none;
+  font-family: var(--font-family-base);
+  transition: border-color var(--transition-fast);
 }
 
-.loading-section,
-.result-section,
-.placeholder-section {
-  min-height: 400px;
+.prompt-area:focus { border-color: var(--color-accent); }
+.prompt-area::placeholder { color: var(--color-text-muted); }
+
+.generate-btn {
+  margin-top: var(--spacing-lg);
+  width: 100%;
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  font-size: 17px;
+  font-family: var(--font-family-serif);
+  cursor: pointer;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  letter-spacing: 1px;
+}
+
+.generate-btn:disabled {
+  background: var(--color-bg-subtle);
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ═══ 预览面板 ═══ */
+.preview-panel {
+  flex: 1;
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-subtle);
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.placeholder-section {
+.preview-grid-bg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+[data-theme="dark"] .preview-grid-bg {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+}
+
+/* 空闲 */
+.preview-idle {
+  display: flex;
   flex-direction: column;
+  align-items: center;
   gap: var(--spacing-md);
-  text-align: center;
-  padding: var(--spacing-xxl) var(--spacing-lg);
+  z-index: 2;
 }
-
-.placeholder-icon {
-  font-size: 64px;
-  color: var(--color-secondary);
-  opacity: 0.6;
-}
-
-.placeholder-title {
-  font-size: var(--font-size-subtitle);
-  font-weight: 600;
-  color: var(--color-text-sub);
-}
-
-.placeholder-desc {
-  font-size: 14px;
+.idle-icon { color: var(--color-text-muted); opacity: 0.4; }
+.idle-text {
   color: var(--color-text-muted);
-  line-height: var(--line-height-body);
-  max-width: 360px;
+  font-family: var(--font-family-serif);
+  letter-spacing: 2px;
 }
 
-/* 移动端适配 */
+/* 生成中 */
+.preview-generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-lg);
+  z-index: 2;
+}
+.spinner-ring {
+  width: 100px;
+  height: 100px;
+  border: 4px solid var(--color-accent-soft);
+  border-top-color: var(--color-accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.generating-text {
+  color: var(--color-accent);
+  font-family: var(--font-family-serif);
+  letter-spacing: 1px;
+  animation: pulse 1.5s ease-in-out infinite;
+  font-weight: 500;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 结果 */
+.preview-result {
+  position: absolute;
+  inset: 8px;
+  z-index: 3;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.result-img { width: 100%; height: 100%; }
+.result-overlay {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 16px;
+  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
+}
+.result-actions { display: flex; gap: 10px; }
+.result-btn {
+  padding: 8px 18px;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-md);
+  background: rgba(255,255,255,0.1);
+  backdrop-filter: blur(8px);
+  color: #FFF;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+.result-btn:hover { background: rgba(255,255,255,0.2); }
+.result-btn.accent { color: var(--color-accent-light); }
+
+/* ═══ 扩展卡片 ═══ */
+.extend-card {
+  margin-top: var(--spacing-lg);
+  padding: var(--spacing-lg);
+}
+.extend-card h4 {
+  font-size: 14px;
+  color: var(--color-text-sub);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+.extend-card p {
+  font-size: 13px;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+}
+
+.spin { animation: spin 1s linear infinite; }
+
 @media (max-width: 768px) {
-  .huanzhu-workspace {
-    flex-direction: column;
-  }
-
-  .huanzhu-left {
-    width: 100%;
-  }
-
-  .huanzhu-right {
-    min-height: 300px;
-  }
+  .huanzhu-layout { flex-direction: column; }
+  .control-panel { width: 100%; min-width: unset; }
+  .preview-panel { min-height: 350px; }
 }
 </style>

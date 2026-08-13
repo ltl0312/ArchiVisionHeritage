@@ -13,13 +13,16 @@ import com.zhiguan.gujian.mapper.*;
 import com.zhiguan.gujian.model.*;
 import com.zhiguan.gujian.service.CommunityService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CommunityServiceImpl implements CommunityService {
@@ -33,19 +36,14 @@ public class CommunityServiceImpl implements CommunityService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    /**
-     * 获取帖子流 — 仅展示审核通过的帖子 (status = APPROVED)
-     * 首页瀑布流按创建时间倒序，实现内容分发展示
-     */
     @Override
     public Page<PostBriefResponse> getPostFeed(int page, int size) {
         Page<Post> postPage = new Page<>(page, size);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .eq(Post::getStatus, "APPROVED")  // 仅展示已审核通过的帖子
+                .eq(Post::getStatus, "APPROVED")
                 .orderByDesc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
-
-        return buildPostBriefPage(result, page, size);
+        return buildPostBriefPage(result);
     }
 
     @Override
@@ -62,17 +60,27 @@ public class CommunityServiceImpl implements CommunityService {
                 glb3dPath = asset.getGlb3dPath();
             }
         }
+        if (preview2dPath == null) preview2dPath = post.getCoverImageUrl();
 
         int likeCount = likeRecordMapper.selectCount(
                 new LambdaQueryWrapper<LikeRecord>()
                         .eq(LikeRecord::getTargetId, post.getId())
                         .eq(LikeRecord::getTargetType, "POST")).intValue();
 
+        int commentCount = commentMapper.selectCount(
+                new LambdaQueryWrapper<Comment>()
+                        .eq(Comment::getPostId, post.getId())).intValue();
+
         boolean likedByMe = currentUserId != null && likeRecordMapper.selectCount(
                 new LambdaQueryWrapper<LikeRecord>()
                         .eq(LikeRecord::getUserId, currentUserId)
                         .eq(LikeRecord::getTargetId, post.getId())
                         .eq(LikeRecord::getTargetType, "POST")) > 0;
+
+        boolean followedByMe = currentUserId != null && followRecordMapper.selectCount(
+                new LambdaQueryWrapper<FollowRecord>()
+                        .eq(FollowRecord::getFollowerId, currentUserId)
+                        .eq(FollowRecord::getFollowingId, post.getUserId())) > 0;
 
         List<CommentResponse> comments = getComments(postId);
 
@@ -82,28 +90,38 @@ public class CommunityServiceImpl implements CommunityService {
                 .content(post.getContent())
                 .preview2dPath(preview2dPath)
                 .glb3dPath(glb3dPath)
+                .authorId(post.getUserId())
                 .authorNickname(author != null ? author.getNickname() : "未知")
                 .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
                 .likeCount(likeCount)
+                .commentCount(commentCount)
                 .likedByMe(likedByMe)
+                .followedByMe(followedByMe)
+                .tags(post.getTags())
                 .comments(comments)
                 .createdAt(post.getCreatedAt() != null ? post.getCreatedAt().format(FMT) : "")
                 .build();
     }
 
-    /**
-     * 用户发帖 — 状态默认为 PENDING（待管理员审核）
-     * 审核通过后才能在社区信息流中展示
-     */
     @Override
     @Transactional
     public void createPost(Long userId, CreatePostRequest request) {
+        User user = userMapper.selectById(userId);
+
         Post post = new Post();
         post.setUserId(userId);
         post.setTitle(request.getTitle());
         post.setContent(request.getContent());
         post.setModelAssetId(request.getModelAssetId());
-        post.setStatus("PENDING");  // 默认待审核，需管理员审核后方可展示
+        post.setCoverImageUrl(request.getPreview2dPath());
+        post.setTags(request.getTags());
+
+        // 管理员发帖无需审核，直接发布
+        if (user != null && "ADMIN".equals(user.getRole())) {
+            post.setStatus("APPROVED");
+        } else {
+            post.setStatus("PENDING");
+        }
         postMapper.insert(post);
     }
 
@@ -136,29 +154,40 @@ public class CommunityServiceImpl implements CommunityService {
                         .eq(Comment::getPostId, postId)
                         .orderByAsc(Comment::getCreatedAt));
 
-        return comments.stream().map(c -> {
-            User user = userMapper.selectById(c.getUserId());
-            int likes = likeRecordMapper.selectCount(
+        // 批量查询评论作者
+        Set<Long> userIds = comments.stream().map(Comment::getUserId).collect(Collectors.toSet());
+        Map<Long, User> userMap = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            userMapper.selectBatchIds(userIds).forEach(u -> userMap.put(u.getId(), u));
+        }
+
+        // 批量查询评论点赞数
+        List<Long> commentIds = comments.stream().map(Comment::getId).collect(Collectors.toList());
+        Map<Long, Integer> likeCountMap = new HashMap<>();
+        if (!commentIds.isEmpty()) {
+            List<LikeRecord> commentLikes = likeRecordMapper.selectList(
                     new LambdaQueryWrapper<LikeRecord>()
-                            .eq(LikeRecord::getTargetId, c.getId())
-                            .eq(LikeRecord::getTargetType, "COMMENT")).intValue();
+                            .in(LikeRecord::getTargetId, commentIds)
+                            .eq(LikeRecord::getTargetType, "COMMENT"));
+            for (LikeRecord lr : commentLikes) {
+                likeCountMap.merge(lr.getTargetId(), 1, Integer::sum);
+            }
+        }
+
+        return comments.stream().map(c -> {
+            User user = userMap.get(c.getUserId());
             return CommentResponse.builder()
                     .id(c.getId())
                     .userId(c.getUserId())
                     .nickname(user != null ? user.getNickname() : "")
                     .avatarUrl(user != null ? user.getAvatarUrl() : null)
                     .content(c.getContent())
-                    .likeCount(likes)
+                    .likeCount(likeCountMap.getOrDefault(c.getId(), 0))
                     .createdAt(c.getCreatedAt() != null ? c.getCreatedAt().format(FMT) : "")
                     .build();
         }).collect(Collectors.toList());
     }
 
-    /**
-     * 点赞/取消点赞 — 防抖逻辑：
-     * 同一用户对同一目标的重复请求自动切换（有则删除/无则新增），
-     * 利用数据库 UNIQUE KEY (user_id, target_id, target_type) 防止重复写入。
-     */
     @Override
     @Transactional
     public void toggleLike(Long userId, LikeRequest request) {
@@ -171,11 +200,16 @@ public class CommunityServiceImpl implements CommunityService {
         if (existing != null) {
             likeRecordMapper.deleteById(existing.getId());
         } else {
-            LikeRecord like = new LikeRecord();
-            like.setUserId(userId);
-            like.setTargetId(request.getTargetId());
-            like.setTargetType(request.getTargetType());
-            likeRecordMapper.insert(like);
+            try {
+                LikeRecord like = new LikeRecord();
+                like.setUserId(userId);
+                like.setTargetId(request.getTargetId());
+                like.setTargetType(request.getTargetType());
+                likeRecordMapper.insert(like);
+            } catch (DuplicateKeyException e) {
+                // 并发情况下可能重复插入，忽略即可
+                log.debug("点赞记录已存在，忽略重复插入: userId={}, targetId={}", userId, request.getTargetId());
+            }
         }
     }
 
@@ -192,10 +226,15 @@ public class CommunityServiceImpl implements CommunityService {
         if (existing != null) {
             followRecordMapper.deleteById(existing.getId());
         } else {
-            FollowRecord follow = new FollowRecord();
-            follow.setFollowerId(followerId);
-            follow.setFollowingId(followingId);
-            followRecordMapper.insert(follow);
+            try {
+                FollowRecord follow = new FollowRecord();
+                follow.setFollowerId(followerId);
+                follow.setFollowingId(followingId);
+                followRecordMapper.insert(follow);
+            } catch (DuplicateKeyException e) {
+                // 并发情况下可能重复插入，忽略即可
+                log.debug("关注记录已存在，忽略重复插入: followerId={}, followingId={}", followerId, followingId);
+            }
         }
     }
 
@@ -224,10 +263,6 @@ public class CommunityServiceImpl implements CommunityService {
 
     // ======================== 管理员审核 ========================
 
-    /**
-     * 管理员审核帖子 — 将帖子状态更新为 APPROVED 或 REJECTED
-     * 仅 REJECTED 时记录驳回原因，APPROVED 后帖子出现在社区信息流
-     */
     @Override
     @Transactional
     public void auditPost(Long postId, String status, String rejectReason) {
@@ -243,9 +278,6 @@ public class CommunityServiceImpl implements CommunityService {
         postMapper.updateById(post);
     }
 
-    /**
-     * 管理员获取待审核帖子列表 (status = PENDING)
-     */
     @Override
     public Page<PostBriefResponse> getPendingPosts(int page, int size) {
         Page<Post> postPage = new Page<>(page, size);
@@ -253,13 +285,9 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(Post::getStatus, "PENDING")
                 .orderByAsc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
-
-        return buildPostBriefPage(result, page, size);
+        return buildPostBriefPage(result);
     }
 
-    /**
-     * 获取用户发布的所有帖子（含各审核状态）
-     */
     @Override
     public Page<PostBriefResponse> getUserPosts(Long userId, int page, int size) {
         Page<Post> postPage = new Page<>(page, size);
@@ -267,16 +295,11 @@ public class CommunityServiceImpl implements CommunityService {
                 .eq(Post::getUserId, userId)
                 .orderByDesc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
-
-        return buildPostBriefPage(result, page, size);
+        return buildPostBriefPage(result);
     }
 
-    /**
-     * 获取用户点赞过的帖子 (通过 like_record 表反向查询)
-     */
     @Override
     public Page<PostBriefResponse> getUserLikedPosts(Long userId, int page, int size) {
-        // 先查用户点赞的所有 POST 类型记录
         List<LikeRecord> likes = likeRecordMapper.selectList(
                 new LambdaQueryWrapper<LikeRecord>()
                         .eq(LikeRecord::getUserId, userId)
@@ -290,7 +313,6 @@ public class CommunityServiceImpl implements CommunityService {
         Page<PostBriefResponse> emptyPage = new Page<>(page, size, likedPostIds.size());
         if (likedPostIds.isEmpty()) return emptyPage;
 
-        // 分页截取
         int fromIndex = (page - 1) * size;
         int toIndex = Math.min(fromIndex + size, likedPostIds.size());
         if (fromIndex >= likedPostIds.size()) return emptyPage;
@@ -298,37 +320,97 @@ public class CommunityServiceImpl implements CommunityService {
         List<Long> pageIds = likedPostIds.subList(fromIndex, toIndex);
         List<Post> posts = postMapper.selectBatchIds(pageIds);
 
-        List<PostBriefResponse> records = posts.stream().map(this::toBriefResponse).collect(Collectors.toList());
+        // 批量加载关联数据
+        Map<Long, User> userMap = batchLoadUsers(posts);
+        Map<Long, ModelAsset> assetMap = batchLoadModelAssets(posts);
+        Map<Long, Integer> likeCountMap = batchCountLikes(posts);
+        Map<Long, Integer> commentCountMap = batchCountComments(posts);
+
+        List<PostBriefResponse> records = posts.stream()
+                .map(p -> toBriefResponse(p, userMap, assetMap, likeCountMap, commentCountMap))
+                .collect(Collectors.toList());
         emptyPage.setRecords(records);
         return emptyPage;
     }
 
-    // ======================== 内部工具方法 ========================
+    // ======================== 批量查询（消除 N+1） ========================
 
-    private Page<PostBriefResponse> buildPostBriefPage(Page<Post> postPage, int page, int size) {
-        Page<PostBriefResponse> responsePage = new Page<>(page, size, postPage.getTotal());
-        responsePage.setRecords(postPage.getRecords().stream()
-                .map(this::toBriefResponse)
-                .collect(Collectors.toList()));
+    private Page<PostBriefResponse> buildPostBriefPage(Page<Post> postPage) {
+        List<Post> posts = postPage.getRecords();
+
+        Map<Long, User> userMap = batchLoadUsers(posts);
+        Map<Long, ModelAsset> assetMap = batchLoadModelAssets(posts);
+        Map<Long, Integer> likeCountMap = batchCountLikes(posts);
+        Map<Long, Integer> commentCountMap = batchCountComments(posts);
+
+        List<PostBriefResponse> records = posts.stream()
+                .map(p -> toBriefResponse(p, userMap, assetMap, likeCountMap, commentCountMap))
+                .collect(Collectors.toList());
+
+        Page<PostBriefResponse> responsePage = new Page<>(postPage.getCurrent(), postPage.getSize(), postPage.getTotal());
+        responsePage.setRecords(records);
         return responsePage;
     }
 
-    private PostBriefResponse toBriefResponse(Post post) {
-        User author = userMapper.selectById(post.getUserId());
-        String preview2dPath = null;
-        if (post.getModelAssetId() != null) {
-            ModelAsset asset = modelAssetMapper.selectById(post.getModelAssetId());
+    private Map<Long, User> batchLoadUsers(List<Post> posts) {
+        Set<Long> userIds = posts.stream().map(Post::getUserId).collect(Collectors.toSet());
+        Map<Long, User> map = new HashMap<>();
+        if (!userIds.isEmpty()) {
+            userMapper.selectBatchIds(userIds).forEach(u -> map.put(u.getId(), u));
+        }
+        return map;
+    }
+
+    private Map<Long, ModelAsset> batchLoadModelAssets(List<Post> posts) {
+        Set<Long> assetIds = posts.stream()
+                .map(Post::getModelAssetId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        Map<Long, ModelAsset> map = new HashMap<>();
+        if (!assetIds.isEmpty()) {
+            modelAssetMapper.selectBatchIds(assetIds).forEach(a -> map.put(a.getId(), a));
+        }
+        return map;
+    }
+
+    private Map<Long, Integer> batchCountLikes(List<Post> posts) {
+        List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
+        Map<Long, Integer> map = new HashMap<>();
+        if (!postIds.isEmpty()) {
+            List<LikeRecord> likes = likeRecordMapper.selectList(
+                    new LambdaQueryWrapper<LikeRecord>()
+                            .in(LikeRecord::getTargetId, postIds)
+                            .eq(LikeRecord::getTargetType, "POST"));
+            for (LikeRecord lr : likes) {
+                map.merge(lr.getTargetId(), 1, Integer::sum);
+            }
+        }
+        return map;
+    }
+
+    private Map<Long, Integer> batchCountComments(List<Post> posts) {
+        List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
+        Map<Long, Integer> map = new HashMap<>();
+        if (!postIds.isEmpty()) {
+            List<Comment> comments = commentMapper.selectList(
+                    new LambdaQueryWrapper<Comment>().in(Comment::getPostId, postIds));
+            for (Comment c : comments) {
+                map.merge(c.getPostId(), 1, Integer::sum);
+            }
+        }
+        return map;
+    }
+
+    private PostBriefResponse toBriefResponse(Post post, Map<Long, User> userMap,
+                                               Map<Long, ModelAsset> assetMap,
+                                               Map<Long, Integer> likeCountMap,
+                                               Map<Long, Integer> commentCountMap) {
+        User author = userMap.get(post.getUserId());
+        String preview2dPath = post.getCoverImageUrl();
+        if (preview2dPath == null && post.getModelAssetId() != null) {
+            ModelAsset asset = assetMap.get(post.getModelAssetId());
             if (asset != null) preview2dPath = asset.getPreview2dPath();
         }
-
-        int likeCount = likeRecordMapper.selectCount(
-                new LambdaQueryWrapper<LikeRecord>()
-                        .eq(LikeRecord::getTargetId, post.getId())
-                        .eq(LikeRecord::getTargetType, "POST")).intValue();
-
-        int commentCount = commentMapper.selectCount(
-                new LambdaQueryWrapper<Comment>()
-                        .eq(Comment::getPostId, post.getId())).intValue();
 
         return PostBriefResponse.builder()
                 .postId(post.getId())
@@ -336,8 +418,10 @@ public class CommunityServiceImpl implements CommunityService {
                 .preview2dPath(preview2dPath)
                 .authorNickname(author != null ? author.getNickname() : "未知")
                 .authorAvatarUrl(author != null ? author.getAvatarUrl() : null)
-                .likeCount(likeCount)
-                .commentCount(commentCount)
+                .likeCount(likeCountMap.getOrDefault(post.getId(), 0))
+                .commentCount(commentCountMap.getOrDefault(post.getId(), 0))
+                .status(post.getStatus())
+                .tags(post.getTags())
                 .createdAt(post.getCreatedAt() != null ? post.getCreatedAt().format(FMT) : "")
                 .build();
     }
