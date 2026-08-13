@@ -12,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
  * 一键幻筑核心调度服务：基于 @Async 实现后台异步状态机流转
@@ -81,10 +83,23 @@ public class TaskOrchestrationServiceImpl implements TaskOrchestrationService {
 
         log.info("幻筑任务 {} 已入队，原始Prompt: {} → 增强后: {}", task.getId(), prompt, enhancedPrompt);
 
-        // 5. 提交至异步线程池执行后续生成流程（使用独立的异步执行器解决 @Async 自调用失效问题）
-        taskAsyncExecutor.executeAsync(task.getId(), prompt, userId);
+        // 5. 事务提交后再触发异步执行（P0-1 修复）：
+        //    异步线程必须在 TX 提交后才能读到 ai_task 行，
+        //    否则会走「任务不存在」分支释放锁，导致任务永久停留在 PENDING
+        Long taskId = task.getId();
+        if (TransactionSynchronizationManager.isActualTransactionActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    taskAsyncExecutor.executeAsync(taskId, prompt, userId);
+                }
+            });
+        } else {
+            // 无事务上下文（如纯单测环境）兜底：直接提交异步执行
+            taskAsyncExecutor.executeAsync(taskId, prompt, userId);
+        }
 
-        return new SubmitResult(task.getId(), false);
+        return new SubmitResult(taskId, false);
     }
 
     /**
