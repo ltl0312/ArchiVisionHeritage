@@ -56,6 +56,18 @@ zhiguan:
     secret: ${JWT_SECRET:ZhiGuan-GuJian-2024-SecretKey-For-JWT-Token-Generation-Must-Be-Long-Enough}
     expiration: 86400000
 
+  # 幻筑任务 — 模拟耗时 / 资产目录 / 异步线程池参数外置（P2-8）
+  task:
+    simulate-min-ms: 3000
+    simulate-max-ms: 7000
+    asset-preview-dir: /assets/preview
+    asset-model-dir: /assets/models
+    pool:
+      core-size: 4
+      max-size: 8
+      queue-capacity: 100
+      name-prefix: zhiguan-async-
+
 # Actuator 健康指标 + Prometheus 监控端点
 management:
   endpoints:

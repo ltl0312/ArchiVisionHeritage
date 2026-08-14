@@ -1,6 +1,7 @@
 package com.zhiguan.gujian.task.interfaces;
 
 import com.zhiguan.gujian.shared.common.Result;
+import com.zhiguan.gujian.task.domain.TaskStatus;
 import com.zhiguan.gujian.task.interfaces.HuanZhuRequest;
 import com.zhiguan.gujian.shared.common.CulturalApiException;
 import com.zhiguan.gujian.task.interfaces.TaskStatusResponse;
@@ -38,7 +39,7 @@ public class HuanZhuController {
 
         Map<String, Object> data = new HashMap<>();
         data.put("taskId", result.taskId());
-        data.put("status", "PENDING");
+        data.put("status", TaskStatus.PENDING);
         data.put("duplicate", result.duplicate());
         return Result.ok(data);
     }
