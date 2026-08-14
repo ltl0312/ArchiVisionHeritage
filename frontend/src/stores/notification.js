@@ -23,10 +23,12 @@ export const useNotificationStore = defineStore('notification', () => {
 
   async function markAsRead(id) {
     await notificationApi.markAsRead(id)
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
   }
 
   async function markAllRead() {
     await notificationApi.markAllAsRead()
+    unreadCount.value = 0
   }
 
   function closeBrocade() {

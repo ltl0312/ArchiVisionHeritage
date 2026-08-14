@@ -17,23 +17,23 @@
         <div class="pref-item">
           <div class="pref-info">
             <div class="pref-title">
-              <el-icon class="pref-title-icon" :class="{ 'is-dark': isDark }">
-                <Sunny v-if="!isDark" />
+              <el-icon class="pref-title-icon" :class="{ 'is-dark': themeStore.isDark }">
+                <Sunny v-if="!themeStore.isDark" />
                 <Moon v-else />
               </el-icon>
               <span>深色 / 浅色模式</span>
             </div>
             <p class="pref-desc">
-              {{ isDark ? '当前为深色模式，适合夜间阅读古建文献' : '当前为浅色模式，如同宣纸画卷般清雅' }}
+              {{ themeStore.isDark ? '当前为深色模式，适合夜间阅读古建文献' : '当前为浅色模式，如同宣纸画卷般清雅' }}
             </p>
           </div>
           <el-switch
-            :model-value="isDark"
+            :model-value="themeStore.isDark"
             class="theme-switch"
             :active-icon="Moon"
             :inactive-icon="Sunny"
             inline-prompt
-            @change="toggleTheme"
+            @change="themeStore.toggleTheme"
           />
         </div>
 
@@ -126,13 +126,14 @@
 </template>
 
 <script setup>
-import { ref, inject } from 'vue'
+import { ref } from 'vue'
 import {
   BrushFilled, InfoFilled, Bell,
   Sunny, Moon, Box, Clock, Connection, Stamp, User
 } from '@element-plus/icons-vue'
+import { useThemeStore } from '@/stores/theme'
 
-const { isDark, toggleTheme } = inject('theme')
+const themeStore = useThemeStore()
 
 const notifSettings = ref({
   huanzhuComplete: true,
