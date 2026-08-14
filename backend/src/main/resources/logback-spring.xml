@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- 日志治理 — 仅声明 appender 与 root 级别兜底。
-     不声明 <logger> 级别：application.yml 的 logging.level 是级别的唯一来源。 -->
+     不声明任何 logger 元素级别：application.yml 的 logging.level 是级别的唯一来源。 -->
 <configuration>
     <property name="LOG_PATH" value="${LOG_PATH:-logs}"/>
     <property name="LOG_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"/>

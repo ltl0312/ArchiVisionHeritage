@@ -12,30 +12,21 @@
 ArchiVisionHeritage/
 ├── backend/                          # Spring Boot 3 后端
 │   ├── pom.xml
-│   └── src/main/
-│       ├── java/com/zhiguan/gujian/
+│   └── src/
+│       ├── main/java/com/zhiguan/gujian/
 │       │   ├── ZhiguanApplication.java      # 启动类
-│       │   ├── config/                       # 配置 (CORS/MyBatis-Plus/Security/异步)
-│       │   ├── controller/                   # 控制器
-│       │   │   ├── AuthController.java       # 认证 (登录/注册)
-│       │   │   ├── CommunityController.java  # 社区 (帖子/评论/点赞/关注/个人中心)
-│       │   │   ├── HuanZhuController.java    # 一键幻筑 (AI 3D生成)
-│       │   │   ├── ZhiXiController.java      # 古建智析 (VGGT结构解析)
-│       │   │   ├── NotificationController.java  # 通知中心
-│       │   │   └── AdminController.java      # 管理后台 (内容审核)
-│       │   ├── model/                        # 数据实体
-│       │   ├── mapper/                       # MyBatis-Plus Mapper
-│       │   ├── service/                      # 业务逻辑层
-│       │   ├── dto/                          # 请求/响应 DTO
-│       │   ├── security/                     # JWT 工具 & 安全过滤器
-│       │   ├── annotation/                   # 自定义注解 (@RateLimit)
-│       │   ├── aop/aspect/                   # 切面 (限流)
-│       │   ├── exception/                    # 全局异常处理
-│       │   ├── constant/                     # 枚举常量
-│       │   └── utils/                        # 工具类
-│       └── resources/
-│           ├── application.yml               # 数据库 & 应用配置
-│           └── init.sql                      # 数据库初始化脚本
+│       │   ├── auth/                         # 认证 BC（登录/注册/个人中心）
+│       │   │   ├── application/  domain/  infrastructure/  interfaces/
+│       │   ├── community/                    # 社区 BC（帖子/评论/点赞/关注）
+│       │   ├── task/                         # 幻筑 BC（任务状态机/资产/幂等锁/领域事件）
+│       │   ├── analysis/                     # 智析 BC（VGGT 结构分析）
+│       │   ├── notification/                 # 通知 BC（站内信/数字锦盒/事件监听器）
+│       │   └── shared/                       # 共享层（aop/config/security/common/util/web）
+│       └── main/resources/
+│           ├── application.yml / -docker.yml / -prod.yml
+│           ├── logback-spring.xml           # 日志滚动策略
+│           ├── init.sql                     # MySQL 初始化脚本（含查询索引）
+│           └── scripts/                     # Redis Lua 脚本（限流/幂等锁）
 │
 ├── frontend/                         # Vue 3 前端
 │   ├── vite.config.js                # Vite 配置 (含 /api 代理)
@@ -146,8 +137,10 @@ mysql -u root -p < backend/src/main/resources/init.sql
 ### 2. 启动后端
 
 ```bash
+# 首次：复制环境变量样例（compose 已无明文默认密码，必须提供 DB_PASSWORD）
+cp .env.example .env   # 填入实际 DB_PASSWORD 后：
 cd backend
-# 数据库密码通过环境变量注入（值参考 .env.example；Git Bash: export DB_PASSWORD=xxx；CMD: set DB_PASSWORD=xxx）
+# 数据库密码通过环境变量注入（Git Bash: export DB_PASSWORD=xxx；CMD: set DB_PASSWORD=xxx）
 mvn spring-boot:run
 ```
 
@@ -163,6 +156,20 @@ npm run build    # 生产构建
 ```
 
 前端启动于：`http://localhost:5173`
+
+---
+
+## 测试
+
+```bash
+cd backend
+mvn test        # 单元测试 + 集成冒烟（111 个用例）
+mvn verify      # 全量构建门禁（CI 同款）
+```
+
+- 单元测试：Mockito standalone，无需外部依赖。
+- 集成冒烟（`IntegrationSmokeTest`）：@SpringBootTest + H2（`schema-h2.sql`）+ 本地 Redis **6379 需运行**（`docker compose up -d redis`，或 CI `services.redis`）。
+- 前端：`npm run build`（无 lint/test 脚本）。
 
 开发环境下，Vite 自动将 `/api` 请求代理至 `http://localhost:8080`。
 

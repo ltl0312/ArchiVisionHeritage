@@ -1,6 +1,6 @@
 # 智观·古建 API 接口文档
 
-> 版本：v1.2 | 基础路径：`http://localhost:8080/api/v1` | 统一响应格式：`{ "code": 200, "msg": "success", "data": {...} }`
+> 版本：v1.2 | 基础路径：`http://localhost:8080/api/v1` | 统一响应格式：`{ "code": 200, "message": "success", "data": {...} }`
 
 ---
 
@@ -21,7 +21,7 @@ Content-Type: application/json
 }
 ```
 
-**响应：** `{ "code": 200, "msg": "success", "data": null }`
+**响应：** `{ "code": 200, "message": "success", "data": null }`
 
 ### 1.2 用户登录
 ```
@@ -41,7 +41,7 @@ Content-Type: application/json
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": { "token": "eyJhbGciOiJIUzI1NiJ9..." }
 }
 ```
@@ -241,6 +241,8 @@ GET /api/v1/users/me/likes?page=1&size=12
 Authorization: Bearer <token>
 ```
 
+> 包结构说明：个人资料/密码接口（3.1-3.3）位于 **auth BC**（ProfileController + UserApplicationService）；我的帖子/点赞（3.4-3.5）位于 **community BC**（CommunityController → PostService/LikeService）。URL 契约不变。
+
 ---
 
 ## 4. 一键幻筑 (HuanZhu — AI 3D 生成)
@@ -313,10 +315,13 @@ Content-Type: multipart/form-data
 
 **Python 服务未就绪时响应：**
 ```json
-{ "code": 503, "msg": "VGGT 深度解析引擎未就绪，请确认 Python 服务已启动 (端口 8000)" }
+{ "code": 503, "message": "VGGT 深度解析引擎未就绪，请确认 Python 服务已启动 (端口 8000)" }
 ```
 
-### 5.2 获取演示数据列表
+### 5.2 获取演示数据列表（已废弃）
+
+> 已废弃：前端已移除该调用（refactor/phase-5），保留仅为兼容旧客户端，后续版本删除。
+
 ```
 GET /api/v1/analysis/zhixi/demos
 ```
@@ -326,9 +331,9 @@ GET /api/v1/analysis/zhixi/demos
 POST /api/v1/analysis/restoration/predict
 ```
 
-**响应 (HTTP 501)：**
+**响应（业务码 501，HTTP 200 —— 占位接口直接返回 Result.fail）：**
 ```json
-{ "code": 501, "msg": "古建智能修复功能即将上线，敬请期待" }
+{ "code": 501, "message": "古建智能修复功能即将上线，敬请期待" }
 ```
 
 ---
@@ -416,7 +421,7 @@ Content-Type: application/json
 ```json
 {
   "code": 200,
-  "msg": "success",
+  "message": "success",
   "data": { ... }
 }
 ```
