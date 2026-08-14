@@ -5,6 +5,7 @@ import com.zhiguan.gujian.task.infrastructure.AiTaskMapper;
 import com.zhiguan.gujian.task.infrastructure.ModelAssetMapper;
 import com.zhiguan.gujian.task.domain.AiTask;
 import com.zhiguan.gujian.task.domain.ModelAsset;
+import com.zhiguan.gujian.task.domain.TaskStatus;
 import com.zhiguan.gujian.task.infrastructure.IdempotentLockService;
 import com.zhiguan.gujian.task.application.TaskOrchestrationService;
 import com.zhiguan.gujian.shared.util.AncientDictUtil;
@@ -75,7 +76,7 @@ public class TaskOrchestrationServiceImpl implements TaskOrchestrationService {
         task.setTaskType("HUANZHU_3D");
         task.setOriginalPrompt(prompt);
         task.setEnhancedPrompt(enhancedPrompt);
-        task.setStatus("PENDING");
+        task.setStatus(TaskStatus.PENDING);
         aiTaskMapper.insert(task);
 
         // 4. Redis 回填 taskId（使后续重复请求可直接定位）
@@ -116,7 +117,7 @@ public class TaskOrchestrationServiceImpl implements TaskOrchestrationService {
                 .status(task.getStatus())
                 .errorMessage(task.getErrorMessage());
 
-        if ("SUCCESS".equals(task.getStatus())) {
+        if (TaskStatus.SUCCESS.equals(task.getStatus())) {
             ModelAsset asset = modelAssetMapper.selectOne(
                     new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<ModelAsset>()
                             .eq(ModelAsset::getTaskId, taskId));
