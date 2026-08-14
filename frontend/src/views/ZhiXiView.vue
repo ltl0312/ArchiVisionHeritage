@@ -142,9 +142,17 @@ async function startAnalyze() {
   position: relative;
 }
 
-.zhixi-page::-webkit-scrollbar { width: 6px; }
-.zhixi-page::-webkit-scrollbar-track { background: transparent; }
-.zhixi-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+/* ═══ 扫描线动画（原 style.css 全局块逐字搬移）═══ */
+@keyframes scan {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(380px); opacity: 0; }
+}
+
+.animate-scan {
+  animation: scan 2s linear infinite;
+}
 
 /* ═══ 状态胶囊 ═══ */
 .status-capsule {

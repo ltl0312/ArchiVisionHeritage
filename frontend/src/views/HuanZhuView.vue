@@ -158,9 +158,6 @@ onUnmounted(() => {
   padding: var(--spacing-xl);
 }
 
-.huanzhu-page::-webkit-scrollbar { width: 6px; }
-.huanzhu-page::-webkit-scrollbar-track { background: transparent; }
-.huanzhu-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
 
 .page-header { margin-bottom: var(--spacing-xl); }
 .header-title {

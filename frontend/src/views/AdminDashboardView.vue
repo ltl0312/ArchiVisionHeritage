@@ -74,9 +74,6 @@ onMounted(fetchPending)
   padding: var(--spacing-xl);
 }
 
-.admin-page::-webkit-scrollbar { width: 6px; }
-.admin-page::-webkit-scrollbar-track { background: transparent; }
-.admin-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
 
 .admin-header {
   margin-bottom: var(--spacing-xl);

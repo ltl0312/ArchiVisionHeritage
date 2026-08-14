@@ -275,9 +275,6 @@ async function changePassword() {
   padding: var(--spacing-xl);
 }
 
-.profile-page::-webkit-scrollbar { width: 6px; }
-.profile-page::-webkit-scrollbar-track { background: transparent; }
-.profile-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
 
 /* ===== 用户信息卡片 ===== */
 .profile-header {
