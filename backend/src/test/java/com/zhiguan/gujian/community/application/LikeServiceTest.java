@@ -1,11 +1,14 @@
 package com.zhiguan.gujian.community.application;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhiguan.gujian.auth.infrastructure.UserMapper;
 import com.zhiguan.gujian.community.domain.LikeRecord;
+import com.zhiguan.gujian.community.domain.Post;
 import com.zhiguan.gujian.community.infrastructure.CommentMapper;
 import com.zhiguan.gujian.community.infrastructure.LikeRecordMapper;
 import com.zhiguan.gujian.community.infrastructure.PostMapper;
 import com.zhiguan.gujian.community.interfaces.LikeRequest;
+import com.zhiguan.gujian.community.interfaces.PostBriefResponse;
 import com.zhiguan.gujian.task.infrastructure.ModelAssetMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,9 +17,12 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Collections;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
@@ -77,5 +83,39 @@ class LikeServiceTest {
 
         verify(likeRecordMapper).deleteById(1L);
         verify(likeRecordMapper, never()).insert(any());
+    }
+
+    @Test
+    @DisplayName("获取点赞帖子 - SQL 分页 + 批量装配")
+    void getUserLikedPosts_usesSqlPagination() {
+        LikeRecord like = new LikeRecord();
+        like.setId(1L);
+        like.setUserId(1L);
+        like.setTargetId(10L);
+        like.setTargetType("POST");
+
+        Page<LikeRecord> likePage = new Page<>(1, 10, 1);
+        likePage.setRecords(Collections.singletonList(like));
+        when(likeRecordMapper.selectPageByUser(any(), eq(1L))).thenReturn(likePage);
+
+        Post post = new Post();
+        post.setId(10L);
+        post.setUserId(2L);
+        post.setTitle("应县木塔");
+        post.setStatus("APPROVED");
+        when(postMapper.selectBatchIds(Collections.singletonList(10L)))
+                .thenReturn(Collections.singletonList(post));
+
+        // 关联数据批量加载均为空（post 无 modelAssetId → batchLoadModelAssets 不触发，勿桩）
+        when(userMapper.selectBatchIds(any())).thenReturn(Collections.emptyList());
+        when(likeRecordMapper.selectList(any())).thenReturn(Collections.emptyList());
+        when(commentMapper.selectList(any())).thenReturn(Collections.emptyList());
+
+        Page<PostBriefResponse> result = likeService.getUserLikedPosts(1L, 1, 10);
+
+        assertEquals(1L, result.getTotal());
+        assertEquals(1, result.getRecords().size());
+        assertEquals(10L, result.getRecords().get(0).getPostId());
+        assertEquals("应县木塔", result.getRecords().get(0).getTitle());
     }
 }
