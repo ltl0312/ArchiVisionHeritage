@@ -4,7 +4,7 @@ services:
     container_name: zhiguan-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-a82711045}
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: zhiguan_gujian
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
@@ -14,7 +14,7 @@ services:
       - mysql-data:/var/lib/mysql
       - ./backend/src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD:-a82711045}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_PASSWORD}"]
       interval: 10s
       timeout: 5s
       start_period: 30s
@@ -66,7 +66,7 @@ services:
       DB_PORT: "3306"
       DB_NAME: zhiguan_gujian
       DB_USERNAME: root
-      DB_PASSWORD: ${DB_PASSWORD:-a82711045}
+      DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       VGGT_API_URL: http://vggt-api:8000/v1/analyze

@@ -283,6 +283,13 @@ INSERT INTO `analysis_demo` (`title`, `mock_json_data`) VALUES (
 );
 
 -- ============================================================================
+-- 10. 查询性能索引（v1.3 — 已部署库可直接执行本 ALTER 段升级）
+-- ============================================================================
+ALTER TABLE like_record ADD INDEX idx_target (target_id, target_type);
+ALTER TABLE notification ADD INDEX idx_user_read (user_id, is_read);
+ALTER TABLE ai_task ADD INDEX idx_updated_at (updated_at);
+
+-- ============================================================================
 -- 数据库初始化完成
 -- ============================================================================
 -- 启动后端后访问: http://localhost:8080

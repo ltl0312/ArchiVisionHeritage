@@ -3,7 +3,8 @@ server:
 
 spring:
   datasource:
-    url: jdbc:h2:mem:testdb;MODE=MySQL;DB_CLOSE_DELAY=-1
+    # NON_KEYWORDS=USER：H2 中 user 是保留字，不声明则建表/查询全挂
+    url: jdbc:h2:mem:testdb;MODE=MySQL;NON_KEYWORDS=USER;DB_CLOSE_DELAY=-1
     username: sa
     password:
     driver-class-name: org.h2.Driver
@@ -11,6 +12,11 @@ spring:
   h2:
     console:
       enabled: true
+
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema-h2.sql
 
   data:
     redis:
@@ -45,6 +51,11 @@ zhiguan:
   jwt:
     secret: ${JWT_SECRET:test-secret-key-for-jwt-tests-0123456789abcdef}
     expiration: 86400000
+
+  # 集成冒烟快跑关键：模拟耗时 0ms（否则每次幻筑 sleep 3-7 秒）
+  task:
+    simulate-min-ms: 0
+    simulate-max-ms: 0
 
 # 测试环境禁用 Actuator
 management:

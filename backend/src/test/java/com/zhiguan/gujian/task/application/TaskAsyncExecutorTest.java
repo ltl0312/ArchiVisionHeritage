@@ -78,4 +78,26 @@ class TaskAsyncExecutorTest {
         verify(taskExecutionService).markFailed(1L);
         verify(idempotentLockService).release(1L, "唐代大殿");
     }
+
+    @Test
+    @DisplayName("prompt 与 userId 均为 null - 跳过幂等锁释放")
+    void executeAsync_promptAndUserIdNull_skipsLockRelease() {
+        when(aiTaskMapper.selectById(1L)).thenReturn(testTask);
+
+        taskAsyncExecutor.executeAsync(1L, null, null);
+
+        verify(taskExecutionService).execute(1L);
+        verify(idempotentLockService, never()).release(any(), any());
+    }
+
+    @Test
+    @DisplayName("userId 为 null - 跳过幂等锁释放")
+    void executeAsync_userIdNull_skipsLockRelease() {
+        when(aiTaskMapper.selectById(1L)).thenReturn(testTask);
+
+        taskAsyncExecutor.executeAsync(1L, "唐代大殿", null);
+
+        verify(taskExecutionService).execute(1L);
+        verify(idempotentLockService, never()).release(any(), any());
+    }
 }

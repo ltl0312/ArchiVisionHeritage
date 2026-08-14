@@ -1,6 +1,7 @@
 package com.zhiguan.gujian.community.application;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhiguan.gujian.auth.domain.User;
 import com.zhiguan.gujian.community.domain.LikeRecord;
@@ -56,24 +57,15 @@ public class LikeServiceImpl implements LikeService {
 
     @Override
     public Page<PostBriefResponse> getUserLikedPosts(Long userId, int page, int size) {
-        List<LikeRecord> likes = likeRecordMapper.selectList(
-                new LambdaQueryWrapper<LikeRecord>()
-                        .eq(LikeRecord::getUserId, userId)
-                        .eq(LikeRecord::getTargetType, "POST")
-                        .orderByDesc(LikeRecord::getCreatedAt));
+        // SQL 分页：ORDER BY created_at DESC + LIMIT 由分页插件追加（原内存分页改为 DB 分页）
+        IPage<LikeRecord> likePage = likeRecordMapper.selectPageByUser(new Page<>(page, size), userId);
 
-        List<Long> likedPostIds = likes.stream()
+        Page<PostBriefResponse> responsePage = new Page<>(page, size, likePage.getTotal());
+        List<Long> pageIds = likePage.getRecords().stream()
                 .map(LikeRecord::getTargetId)
                 .collect(Collectors.toList());
+        if (pageIds.isEmpty()) return responsePage;
 
-        Page<PostBriefResponse> emptyPage = new Page<>(page, size, likedPostIds.size());
-        if (likedPostIds.isEmpty()) return emptyPage;
-
-        int fromIndex = (page - 1) * size;
-        int toIndex = Math.min(fromIndex + size, likedPostIds.size());
-        if (fromIndex >= likedPostIds.size()) return emptyPage;
-
-        List<Long> pageIds = likedPostIds.subList(fromIndex, toIndex);
         List<Post> posts = postMapper.selectBatchIds(pageIds);
 
         // 批量加载关联数据
@@ -85,7 +77,7 @@ public class LikeServiceImpl implements LikeService {
         List<PostBriefResponse> records = posts.stream()
                 .map(p -> postBriefAssembler.toBriefResponse(p, userMap, assetMap, likeCountMap, commentCountMap))
                 .collect(Collectors.toList());
-        emptyPage.setRecords(records);
-        return emptyPage;
+        responsePage.setRecords(records);
+        return responsePage;
     }
 }
