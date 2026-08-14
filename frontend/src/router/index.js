@@ -1,5 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { useUserStore } from '@/stores/user'
+import { decodeTokenPayload } from '@/stores/user'
 
 const routes = [
   {
@@ -79,14 +79,9 @@ router.beforeEach((to, from, next) => {
 
   // 需要管理员权限的页面 — 前端路由守卫
   if (to.meta.requiresAdmin) {
-    try {
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      if (payload.role !== 'ADMIN') {
-        return next('/home')
-      }
-    } catch {
-      return next('/login')
-    }
+    const payload = token ? decodeTokenPayload(token) : null
+    if (!payload) return next('/login')
+    if (payload.role !== 'ADMIN') return next('/home')
   }
 
   next()

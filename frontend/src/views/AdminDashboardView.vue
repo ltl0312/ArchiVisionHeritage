@@ -43,19 +43,16 @@ import { ref, onMounted } from 'vue'
 import { Monitor } from '@element-plus/icons-vue'
 import { adminApi } from '@/api/admin'
 import { ElMessage } from 'element-plus'
+import { recordsFallback } from '@/utils/pagination'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
-const loading = ref(true)
 const pendingPosts = ref([])
 const auditingId = ref(null)
 
-async function fetchPending() {
-  loading.value = true
-  try {
-    const res = await adminApi.getPendingPosts()
-    pendingPosts.value = res.data?.records || res.data || []
-  } catch { /* ignore */ }
-  loading.value = false
-}
+const { loading, run: fetchPending } = useAsyncAction(async () => {
+  const res = await adminApi.getPendingPosts()
+  pendingPosts.value = recordsFallback(res.data)
+}, { initialLoading: true })
 
 async function auditPost(postId, approved) {
   auditingId.value = postId
@@ -77,9 +74,6 @@ onMounted(fetchPending)
   padding: var(--spacing-xl);
 }
 
-.admin-page::-webkit-scrollbar { width: 6px; }
-.admin-page::-webkit-scrollbar-track { background: transparent; }
-.admin-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
 
 .admin-header {
   margin-bottom: var(--spacing-xl);
@@ -101,9 +95,7 @@ onMounted(fetchPending)
 }
 
 .glass-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
+  /* 仅补 padding：背景/边框/圆角/阴影由全局 .glass-card 提供 */
   padding: var(--spacing-xl);
 }
 

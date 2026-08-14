@@ -165,6 +165,7 @@ import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api/auth'
 import { ElMessage } from 'element-plus'
 import ImageUploader from '@/components/ImageUploader.vue'
+import { recordsFallback } from '@/utils/pagination'
 
 const userStore = useUserStore()
 const activeTab = ref('posts')
@@ -203,8 +204,8 @@ async function loadProfile() {
       authApi.getMyLikes()
     ])
     profile.value = profileRes.data || {}
-    myPosts.value = postsRes.data?.records || postsRes.data || []
-    likedPosts.value = likesRes.data?.records || likesRes.data || []
+    myPosts.value = recordsFallback(postsRes.data)
+    likedPosts.value = recordsFallback(likesRes.data)
   } catch { /* ignore */ }
 }
 
@@ -223,9 +224,7 @@ async function saveAvatar() {
     profile.value.avatarUrl = avatarForm.value.avatarUrl
     showAvatarDialog.value = false
     ElMessage.success('头像已更新')
-  } catch {
-    ElMessage.error('头像更新失败')
-  } finally {
+  } catch { /* 拦截器已提示 */ } finally {
     savingAvatar.value = false
   }
 }
@@ -241,9 +240,7 @@ async function saveProfile() {
     profile.value.bio = editForm.value.bio
     showEditDialog.value = false
     ElMessage.success('资料已更新')
-  } catch {
-    ElMessage.error('更新失败')
-  } finally {
+  } catch { /* 拦截器已提示 */ } finally {
     savingProfile.value = false
   }
 }
@@ -265,9 +262,7 @@ async function changePassword() {
     ElMessage.success('密码修改成功')
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
     showPasswordDialog.value = false
-  } catch {
-    ElMessage.error('密码修改失败')
-  } finally {
+  } catch { /* 拦截器已提示 */ } finally {
     changingPwd.value = false
   }
 }
@@ -280,9 +275,6 @@ async function changePassword() {
   padding: var(--spacing-xl);
 }
 
-.profile-page::-webkit-scrollbar { width: 6px; }
-.profile-page::-webkit-scrollbar-track { background: transparent; }
-.profile-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
 
 /* ===== 用户信息卡片 ===== */
 .profile-header {

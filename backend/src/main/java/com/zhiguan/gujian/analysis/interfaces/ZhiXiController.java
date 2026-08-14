@@ -31,7 +31,12 @@ public class ZhiXiController {
         return Result.ok(analysisService.analyze(image));
     }
 
-    /** 获取智析演示数据列表（V1.0 过渡保留） */
+    /**
+     * 获取智析演示数据列表（V1.0 过渡保留）
+     *
+     * @deprecated 前端已移除 demos 调用（refactor/phase-5），保留接口仅为兼容旧客户端，后续版本删除
+     */
+    @Deprecated
     @GetMapping("/zhixi/demos")
     public Result<List<AnalysisDemo>> listDemos() {
         return Result.ok(analysisService.listDemos());

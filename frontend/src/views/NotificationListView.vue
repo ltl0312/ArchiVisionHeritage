@@ -7,24 +7,12 @@
 
     <div v-loading="loading">
       <div v-if="notifications.length" class="notification-list glass-card">
-        <div
+        <NotificationItem
           v-for="n in notifications"
           :key="n.id"
-          class="notification-item"
-          :class="{ unread: !n.read }"
-          @click="handleClick(n)"
-        >
-          <div class="notif-icon">
-            <el-icon size="20" :color="n.read ? 'var(--color-text-muted)' : 'var(--color-accent)'">
-              <Present />
-            </el-icon>
-          </div>
-          <div class="notif-body">
-            <p class="notif-message">{{ n.message }}</p>
-            <span class="notif-time">{{ n.createdAt }}</span>
-          </div>
-          <div v-if="!n.read" class="notif-dot"></div>
-        </div>
+          :notification="n"
+          @click="handleClick"
+        />
       </div>
       <el-empty v-else-if="!loading" description="暂无通知" />
     </div>
@@ -34,23 +22,19 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Present } from '@element-plus/icons-vue'
 import { useNotificationStore } from '@/stores/notification'
 import { ElMessage } from 'element-plus'
+import { useAsyncAction } from '@/composables/useAsyncAction'
+import NotificationItem from '@/components/NotificationItem.vue'
 
 const router = useRouter()
 const notifStore = useNotificationStore()
 const notifications = ref([])
-const loading = ref(false)
 
-async function fetchNotifications() {
-  loading.value = true
-  try {
-    await notifStore.fetchNotifications()
-    notifications.value = notifStore.notifications || []
-  } catch { /* ignore */ }
-  loading.value = false
-}
+const { loading, run: fetchNotifications } = useAsyncAction(async () => {
+  await notifStore.fetchNotifications()
+  notifications.value = notifStore.notifications || []
+})
 
 async function handleClick(n) {
   if (!n.read) {
@@ -78,10 +62,6 @@ onMounted(fetchNotifications)
   padding: var(--spacing-xl);
 }
 
-.notif-page::-webkit-scrollbar { width: 6px; }
-.notif-page::-webkit-scrollbar-track { background: transparent; }
-.notif-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
-
 .page-header {
   display: flex;
   align-items: center;
@@ -98,40 +78,5 @@ onMounted(fetchNotifications)
 .notification-list {
   padding: 0;
   overflow: hidden;
-}
-
-.notification-item {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-md) var(--spacing-lg);
-  cursor: pointer;
-  transition: background var(--transition-fast);
-  border-bottom: 1px solid var(--color-border);
-}
-
-.notification-item:last-child { border-bottom: none; }
-.notification-item:hover { background: var(--color-bg-subtle); }
-.notification-item.unread { background: var(--color-accent-soft); }
-
-.notif-body { flex: 1; }
-
-.notif-message {
-  font-size: 14px;
-  color: var(--color-text-main);
-  margin-bottom: 4px;
-}
-
-.notif-time {
-  font-size: var(--font-size-caption);
-  color: var(--color-text-muted);
-}
-
-.notif-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--color-accent);
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 </style>

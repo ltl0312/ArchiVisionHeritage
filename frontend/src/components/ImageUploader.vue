@@ -57,9 +57,7 @@ async function handleUpload(file) {
     const res = await uploadApi.uploadImage(file, props.subDir)
     emit('update:model-value', res.data.url)
     ElMessage.success('上传成功')
-  } catch (error) {
-    ElMessage.error('上传失败')
-  }
+  } catch { /* 拦截器已提示 */ }
   // 阻止 el-upload 默认上传行为
   return false
 }

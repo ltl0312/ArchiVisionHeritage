@@ -5,7 +5,7 @@
       <el-icon :size="16" class="capsule-icon"><MagicStick /></el-icon>
       <span class="capsule-text">VGGT 智析引擎</span>
       <span class="capsule-divider">|</span>
-      <span class="capsule-quota">剩余次数: <strong>{{ quota.remaining }}</strong>/{{ quota.total }}</span>
+      <span class="capsule-text">每日限 5 次解析</span>
     </div>
 
     <!-- 头部 -->
@@ -90,7 +90,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 import { MagicStick, UploadFilled, InfoFilled, Grid, Clock, Location, Setting } from '@element-plus/icons-vue'
 import { zhixiApi } from '@/api/zhixi'
 import { ElMessage } from 'element-plus'
@@ -100,8 +100,6 @@ const uploadedImage = ref(null)
 const selectedFile = ref(null)
 const analyzing = ref(false)
 const result = ref(null)
-
-const quota = ref({ total: 5, remaining: 4 })
 
 function triggerUpload() {
   if (analyzing.value) return
@@ -131,10 +129,7 @@ async function startAnalyze() {
     formData.append('image', selectedFile.value)
     const res = await zhixiApi.analyze(formData)
     result.value = res.data || res
-    quota.value.remaining = Math.max(0, quota.value.remaining - 1)
-  } catch {
-    ElMessage.error('分析失败，请稍后重试')
-  }
+  } catch { /* 拦截器已提示 */ }
   analyzing.value = false
 }
 </script>
@@ -147,9 +142,17 @@ async function startAnalyze() {
   position: relative;
 }
 
-.zhixi-page::-webkit-scrollbar { width: 6px; }
-.zhixi-page::-webkit-scrollbar-track { background: transparent; }
-.zhixi-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
+/* ═══ 扫描线动画（原 style.css 全局块逐字搬移）═══ */
+@keyframes scan {
+  0% { transform: translateY(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(380px); opacity: 0; }
+}
+
+.animate-scan {
+  animation: scan 2s linear infinite;
+}
 
 /* ═══ 状态胶囊 ═══ */
 .status-capsule {

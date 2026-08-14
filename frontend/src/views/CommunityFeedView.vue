@@ -32,51 +32,7 @@
 
     <!-- 瀑布流 -->
     <div class="architecture-feed-container" v-loading="loading">
-      <div
-        v-for="post in posts"
-        :key="post.postId"
-        class="feed-card"
-        @click="$router.push(`/post/${post.postId}`)"
-      >
-        <!-- 图片区 -->
-        <div class="card-cover-wrap">
-          <el-image v-if="post.preview2dPath" lazy :src="post.preview2dPath" fit="cover" class="card-cover">
-            <template #error>
-              <div class="card-cover-placeholder">
-                <el-icon size="48"><PictureFilled /></el-icon>
-              </div>
-            </template>
-          </el-image>
-          <div v-else class="card-cover-placeholder">
-            <el-icon size="48"><PictureFilled /></el-icon>
-          </div>
-          <!-- 标签浮层 -->
-          <div class="card-tags" v-if="post.tags">
-            <span v-for="tag in parseTags(post.tags)" :key="tag" class="card-tag">{{ tag }}</span>
-          </div>
-        </div>
-
-        <!-- 信息区 -->
-        <div class="card-body">
-          <h3 class="card-title">{{ post.title }}</h3>
-          <div class="card-meta">
-            <div class="author">
-              <el-avatar :size="24" :icon="UserFilled" />
-              <span>{{ post.authorNickname || '匿名' }}</span>
-            </div>
-            <div class="card-actions">
-              <button class="action-btn" :class="{ liked: post.likedByMe }" @click.stop="handleLike(post)">
-                <el-icon :size="16"><StarFilled v-if="post.likedByMe" /><Star v-else /></el-icon>
-                <span>{{ post.likeCount || 0 }}</span>
-              </button>
-              <button class="action-btn" @click.stop>
-                <el-icon :size="16"><ChatLineSquare /></el-icon>
-                <span>{{ post.commentCount || 0 }}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      <PostCard v-for="post in posts" :key="post.postId" :post="post" />
     </div>
 
     <!-- 分页 -->
@@ -184,13 +140,16 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
-import { MagicStick, Edit, Search, PictureFilled, UserFilled, Star, StarFilled, ChatLineSquare, Plus } from '@element-plus/icons-vue'
+import { MagicStick, Edit, Search, Plus } from '@element-plus/icons-vue'
 import { communityApi } from '@/api/community'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import ImageUploader from '@/components/ImageUploader.vue'
+import PostCard from '@/components/PostCard.vue'
+import { recordsFallback } from '@/utils/pagination'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -202,7 +161,6 @@ const QuillEditor = defineAsyncComponent(async () => {
 })
 
 const posts = ref([])
-const loading = ref(false)
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = 12
@@ -248,43 +206,15 @@ const contentLength = computed(() => {
 })
 
 /* ═══ 数据 ═══ */
-function parseTags(tags) {
-  if (!tags) return []
-  if (Array.isArray(tags)) return tags
-  return tags.split(',').map(t => t.trim()).filter(Boolean)
-}
-
-async function fetchPosts() {
-  loading.value = true
-  try {
-    const res = await communityApi.getPosts({
-      page: currentPage.value,
-      size: pageSize,
-      keyword: searchText.value || undefined
-    })
-    posts.value = res.data.records || res.data || []
-    total.value = res.data.total || 0
-  } catch { /* ignore */ }
-  loading.value = false
-}
-
-async function handleLike(post) {
-  if (!userStore.isLoggedIn) {
-    ElMessage.warning('请先登录')
-    router.push('/login')
-    return
-  }
-  const prevLiked = post.likedByMe
-  const prevCount = post.likeCount || 0
-  post.likedByMe = !post.likedByMe
-  post.likeCount = prevCount + (post.likedByMe ? 1 : -1)
-  try {
-    await communityApi.toggleLike({ targetId: post.postId, targetType: 'POST' })
-  } catch {
-    post.likedByMe = prevLiked
-    post.likeCount = prevCount
-  }
-}
+const { loading, run: fetchPosts } = useAsyncAction(async () => {
+  const res = await communityApi.getPosts({
+    page: currentPage.value,
+    size: pageSize,
+    keyword: searchText.value || undefined
+  })
+  posts.value = recordsFallback(res.data)
+  total.value = res.data.total || 0
+})
 
 /* ═══ 标签操作 ═══ */
 function addTag() {
@@ -355,13 +285,31 @@ onMounted(fetchPosts)
   padding: var(--spacing-xl);
 }
 
-.community-page::-webkit-scrollbar { width: 6px; }
-.community-page::-webkit-scrollbar-track { background: transparent; }
-.community-page::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
-.community-page::-webkit-scrollbar-thumb:hover { background: rgba(0,0,0,0.18); }
+/* ═══ 瀑布流容器（原 style.css 全局块逐字搬移）═══ */
+.architecture-feed-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--spacing-lg);
+}
 
-[data-theme="dark"] .community-page::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); }
-[data-theme="dark"] .community-page::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.14); }
+@media (max-width: 1200px) {
+  .architecture-feed-container {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .architecture-feed-container {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+  }
+}
+
+@media (max-width: 480px) {
+  .architecture-feed-container {
+    grid-template-columns: 1fr;
+  }
+}
 
 /* ═══ 头部 ═══ */
 .page-header {
@@ -414,28 +362,6 @@ onMounted(fetchPosts)
   border-color: var(--color-accent);
 }
 
-/* ═══ 卡片封面 ═══ */
-.card-cover-wrap {
-  position: relative;
-  width: 100%;
-  overflow: hidden;
-}
-
-.card-cover-wrap .el-image {
-  width: 100%;
-  display: block;
-}
-
-.card-cover-placeholder {
-  width: 100%;
-  min-height: 200px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-subtle);
-  color: var(--color-text-muted);
-}
-
 /* ═══ 分页 ═══ */
 .pagination-wrap {
   display: flex;
@@ -468,10 +394,6 @@ onMounted(fetchPosts)
   overflow-y: auto;
   padding-right: var(--spacing-sm);
 }
-
-.publish-form::-webkit-scrollbar { width: 4px; }
-.publish-form::-webkit-scrollbar-track { background: transparent; }
-.publish-form::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 2px; }
 
 /* ═══ 富文本编辑器 ═══ */
 .editor-wrapper {

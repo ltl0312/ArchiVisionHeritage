@@ -6,7 +6,6 @@ export const useNotificationStore = defineStore('notification', () => {
   const unreadCount = ref(0)
   const notifications = ref([])
   const showBrocade = ref(false)
-  const brocadeTaskId = ref(null)
 
   async function fetchUnreadCount() {
     try {
@@ -24,18 +23,12 @@ export const useNotificationStore = defineStore('notification', () => {
 
   async function markAsRead(id) {
     await notificationApi.markAsRead(id)
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
   }
 
   async function markAllRead() {
     await notificationApi.markAllAsRead()
-  }
-
-  function checkTaskSuccess(taskStatusRes) {
-    if (taskStatusRes && taskStatusRes.status === 'SUCCESS') {
-      brocadeTaskId.value = taskStatusRes.taskId
-      showBrocade.value = true
-      fetchUnreadCount()
-    }
+    unreadCount.value = 0
   }
 
   function closeBrocade() {
@@ -43,7 +36,7 @@ export const useNotificationStore = defineStore('notification', () => {
   }
 
   return {
-    unreadCount, notifications, showBrocade, brocadeTaskId,
-    fetchUnreadCount, fetchNotifications, markAsRead, markAllRead, checkTaskSuccess, closeBrocade
+    unreadCount, notifications, showBrocade,
+    fetchUnreadCount, fetchNotifications, markAsRead, markAllRead, closeBrocade
   }
 })
