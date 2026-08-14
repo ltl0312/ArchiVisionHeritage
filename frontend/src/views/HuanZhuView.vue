@@ -64,12 +64,6 @@
               fit="cover"
               class="result-img"
             />
-            <div class="result-overlay">
-              <div class="result-actions">
-                <button class="result-btn">导出 OBJ/GLTF</button>
-                <button class="result-btn accent">推演材质</button>
-              </div>
-            </div>
           </div>
         </template>
       </div>
@@ -115,10 +109,7 @@ async function handleGenerate() {
       ElMessage.info('检测到相同的幻筑任务已在处理中')
     }
     pollTaskStatus(res.data?.taskId)
-  } catch {
-    ElMessage.error('任务提交失败')
-    generating.value = false
-  }
+  } catch { /* 拦截器已提示 */ generating.value = false }
 }
 
 async function pollTaskStatus(taskId) {
@@ -340,26 +331,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 .result-img { width: 100%; height: 100%; }
-.result-overlay {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  padding: 16px;
-  background: linear-gradient(to top, rgba(0,0,0,0.6), transparent);
-}
-.result-actions { display: flex; gap: 10px; }
-.result-btn {
-  padding: 8px 18px;
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: var(--radius-md);
-  background: rgba(255,255,255,0.1);
-  backdrop-filter: blur(8px);
-  color: #FFF;
-  font-size: 13px;
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-.result-btn:hover { background: rgba(255,255,255,0.2); }
-.result-btn.accent { color: var(--color-accent-light); }
 
 /* ═══ 扩展卡片 ═══ */
 .extend-card {

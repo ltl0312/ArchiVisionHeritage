@@ -101,9 +101,7 @@ onMounted(fetchPending)
 }
 
 .glass-card {
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
+  /* 仅补 padding：背景/边框/圆角/阴影由全局 .glass-card 提供 */
   padding: var(--spacing-xl);
 }
 

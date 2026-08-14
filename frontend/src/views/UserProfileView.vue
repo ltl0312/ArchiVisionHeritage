@@ -223,9 +223,7 @@ async function saveAvatar() {
     profile.value.avatarUrl = avatarForm.value.avatarUrl
     showAvatarDialog.value = false
     ElMessage.success('头像已更新')
-  } catch {
-    ElMessage.error('头像更新失败')
-  } finally {
+  } catch { /* 拦截器已提示 */ } finally {
     savingAvatar.value = false
   }
 }
@@ -241,9 +239,7 @@ async function saveProfile() {
     profile.value.bio = editForm.value.bio
     showEditDialog.value = false
     ElMessage.success('资料已更新')
-  } catch {
-    ElMessage.error('更新失败')
-  } finally {
+  } catch { /* 拦截器已提示 */ } finally {
     savingProfile.value = false
   }
 }
@@ -265,9 +261,7 @@ async function changePassword() {
     ElMessage.success('密码修改成功')
     passwordForm.value = { oldPassword: '', newPassword: '', confirmPassword: '' }
     showPasswordDialog.value = false
-  } catch {
-    ElMessage.error('密码修改失败')
-  } finally {
+  } catch { /* 拦截器已提示 */ } finally {
     changingPwd.value = false
   }
 }

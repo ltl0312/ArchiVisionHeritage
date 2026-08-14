@@ -16,12 +16,6 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem('token', t)
   }
 
-  function setUserInfo(id, name, userRole) {
-    userId.value = id
-    username.value = name
-    role.value = userRole || 'USER'
-  }
-
   /** 从 JWT payload 解析 userId 和 role */
   function parseToken() {
     try {
@@ -53,5 +47,5 @@ export const useUserStore = defineStore('user', () => {
   }
 
   return { token, username, userId, role, isLoggedIn, isAdmin,
-           setToken, setUserInfo, parseToken, login, register, logout }
+           setToken, parseToken, login, register, logout }
 })

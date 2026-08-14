@@ -63,9 +63,7 @@ async function handleLogin() {
     await userStore.login(loginForm.value)
     ElMessage.success('登录成功')
     router.push('/home')
-  } catch {
-    ElMessage.error('登录失败，请检查账号密码')
-  }
+  } catch { /* 拦截器已提示 */ }
   loading.value = false
 }
 
@@ -82,9 +80,7 @@ async function handleRegister() {
     await userStore.register(registerForm.value)
     ElMessage.success('注册成功，请登录')
     activeTab.value = 'login'
-  } catch {
-    ElMessage.error('注册失败')
-  }
+  } catch { /* 拦截器已提示 */ }
   loading.value = false
 }
 </script>
