@@ -1,0 +1,9 @@
+# 生产 profile — 日志治理（用法: java -jar gujian.jar --spring.profiles.active=prod）
+mybatis-plus:
+  configuration:
+    # 关闭 MyBatis SQL 逐行输出（prod 不打印参数与结果）
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+logging:
+  level:
+    com.zhiguan.gujian: info
