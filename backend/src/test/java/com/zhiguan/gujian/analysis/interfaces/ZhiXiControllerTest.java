@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -88,5 +89,15 @@ class ZhiXiControllerTest {
         mockMvc.perform(get("/api/v1/analysis/zhixi/demos"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    @DisplayName("古建智能修复预留接口 - 业务码 501")
+    void restorationPredict_returns501() throws Exception {
+        // 501 占位为 Result.fail 直接返回（阶段二明示保留），非抛异常 → HTTP 200 + 业务码 501
+        mockMvc.perform(post("/api/v1/analysis/restoration/predict"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(501))
+                .andExpect(jsonPath("$.message").value("古建智能修复功能即将上线，敬请期待"));
     }
 }
