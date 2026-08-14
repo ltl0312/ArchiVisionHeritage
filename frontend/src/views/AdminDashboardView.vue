@@ -43,19 +43,16 @@ import { ref, onMounted } from 'vue'
 import { Monitor } from '@element-plus/icons-vue'
 import { adminApi } from '@/api/admin'
 import { ElMessage } from 'element-plus'
+import { recordsFallback } from '@/utils/pagination'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
-const loading = ref(true)
 const pendingPosts = ref([])
 const auditingId = ref(null)
 
-async function fetchPending() {
-  loading.value = true
-  try {
-    const res = await adminApi.getPendingPosts()
-    pendingPosts.value = res.data?.records || res.data || []
-  } catch { /* ignore */ }
-  loading.value = false
-}
+const { loading, run: fetchPending } = useAsyncAction(async () => {
+  const res = await adminApi.getPendingPosts()
+  pendingPosts.value = recordsFallback(res.data)
+}, { initialLoading: true })
 
 async function auditPost(postId, approved) {
   auditingId.value = postId

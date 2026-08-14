@@ -37,20 +37,16 @@ import { useRouter } from 'vue-router'
 import { Present } from '@element-plus/icons-vue'
 import { useNotificationStore } from '@/stores/notification'
 import { ElMessage } from 'element-plus'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
 const router = useRouter()
 const notifStore = useNotificationStore()
 const notifications = ref([])
-const loading = ref(false)
 
-async function fetchNotifications() {
-  loading.value = true
-  try {
-    await notifStore.fetchNotifications()
-    notifications.value = notifStore.notifications || []
-  } catch { /* ignore */ }
-  loading.value = false
-}
+const { loading, run: fetchNotifications } = useAsyncAction(async () => {
+  await notifStore.fetchNotifications()
+  notifications.value = notifStore.notifications || []
+})
 
 async function handleClick(n) {
   if (!n.read) {

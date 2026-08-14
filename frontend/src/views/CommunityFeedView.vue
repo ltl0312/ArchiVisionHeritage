@@ -184,13 +184,16 @@
 </template>
 
 <script setup>
-import { ref, computed, nextTick, onMounted, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useRouter } from 'vue-router'
 import { MagicStick, Edit, Search, PictureFilled, UserFilled, Star, StarFilled, ChatLineSquare, Plus } from '@element-plus/icons-vue'
 import { communityApi } from '@/api/community'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
 import ImageUploader from '@/components/ImageUploader.vue'
+import { parseTags } from '@/utils/format'
+import { recordsFallback } from '@/utils/pagination'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -202,7 +205,6 @@ const QuillEditor = defineAsyncComponent(async () => {
 })
 
 const posts = ref([])
-const loading = ref(false)
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = 12
@@ -248,25 +250,15 @@ const contentLength = computed(() => {
 })
 
 /* ═══ 数据 ═══ */
-function parseTags(tags) {
-  if (!tags) return []
-  if (Array.isArray(tags)) return tags
-  return tags.split(',').map(t => t.trim()).filter(Boolean)
-}
-
-async function fetchPosts() {
-  loading.value = true
-  try {
-    const res = await communityApi.getPosts({
-      page: currentPage.value,
-      size: pageSize,
-      keyword: searchText.value || undefined
-    })
-    posts.value = res.data.records || res.data || []
-    total.value = res.data.total || 0
-  } catch { /* ignore */ }
-  loading.value = false
-}
+const { loading, run: fetchPosts } = useAsyncAction(async () => {
+  const res = await communityApi.getPosts({
+    page: currentPage.value,
+    size: pageSize,
+    keyword: searchText.value || undefined
+  })
+  posts.value = recordsFallback(res.data)
+  total.value = res.data.total || 0
+})
 
 async function handleLike(post) {
   if (!userStore.isLoggedIn) {

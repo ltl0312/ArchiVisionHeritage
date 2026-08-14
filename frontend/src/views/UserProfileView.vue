@@ -165,6 +165,7 @@ import { useUserStore } from '@/stores/user'
 import { authApi } from '@/api/auth'
 import { ElMessage } from 'element-plus'
 import ImageUploader from '@/components/ImageUploader.vue'
+import { recordsFallback } from '@/utils/pagination'
 
 const userStore = useUserStore()
 const activeTab = ref('posts')
@@ -203,8 +204,8 @@ async function loadProfile() {
       authApi.getMyLikes()
     ])
     profile.value = profileRes.data || {}
-    myPosts.value = postsRes.data?.records || postsRes.data || []
-    likedPosts.value = likesRes.data?.records || likesRes.data || []
+    myPosts.value = recordsFallback(postsRes.data)
+    likedPosts.value = recordsFallback(likesRes.data)
   } catch { /* ignore */ }
 }
 

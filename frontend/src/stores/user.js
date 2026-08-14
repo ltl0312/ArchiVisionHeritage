@@ -2,6 +2,16 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { authApi } from '@/api/auth'
 
+/** 从 JWT payload 解码（纯函数，router 守卫复用）。解码失败返回 null */
+export function decodeTokenPayload(token) {
+  if (!token) return null
+  try {
+    return JSON.parse(atob(token.split('.')[1]))
+  } catch {
+    return null
+  }
+}
+
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
   const username = ref('')
@@ -16,14 +26,13 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem('token', t)
   }
 
-  /** 从 JWT payload 解析 userId 和 role */
+  /** 从 JWT payload 解析 userId 和 role（解码失败时保留原值） */
   function parseToken() {
-    try {
-      const payload = JSON.parse(atob(token.value.split('.')[1]))
-      userId.value = payload.sub ? Number(payload.sub) : null
-      username.value = payload.username || ''
-      role.value = payload.role || 'USER'
-    } catch { /* ignore */ }
+    const payload = decodeTokenPayload(token.value)
+    if (!payload) return
+    userId.value = payload.sub ? Number(payload.sub) : null
+    username.value = payload.username || ''
+    role.value = payload.role || 'USER'
   }
 
   async function login(credentials) {

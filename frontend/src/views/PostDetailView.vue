@@ -116,30 +116,21 @@ import { ArrowLeft, PictureFilled, UserFilled, Star, StarFilled, ChatLineSquare 
 import { communityApi } from '@/api/community'
 import { useUserStore } from '@/stores/user'
 import { ElMessage } from 'element-plus'
+import { parseTags } from '@/utils/format'
+import { useAsyncAction } from '@/composables/useAsyncAction'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
 const post = ref(null)
-const loading = ref(true)
 const commentText = ref('')
 const submittingComment = ref(false)
 
-function parseTags(tags) {
-  if (!tags) return []
-  if (Array.isArray(tags)) return tags
-  return tags.split(',').map(t => t.trim()).filter(Boolean)
-}
-
-async function fetchPost() {
-  loading.value = true
-  try {
-    const res = await communityApi.getPostDetail(route.params.id)
-    post.value = res.data
-  } catch { /* ignore */ }
-  loading.value = false
-}
+const { loading, run: fetchPost } = useAsyncAction(async () => {
+  const res = await communityApi.getPostDetail(route.params.id)
+  post.value = res.data
+}, { initialLoading: true })
 
 async function handleLike() {
   if (!userStore.isLoggedIn) {
