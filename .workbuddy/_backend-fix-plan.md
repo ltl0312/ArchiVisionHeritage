@@ -138,3 +138,35 @@ cd backend && mvn -q test
 - 再跑一次 §1 对应行的「验证」命令确认现状（不要凭记忆）。
 - 若 `docker compose ps` 显示栈已停：`docker compose -f docker-compose.yml -f docker-compose.verify.yml up -d`。
 - 所有 PoC 脚本在 `.workbuddy/_poc_*.mjs`，用法统一：`node <脚本> http://127.0.0.1:8088`。
+
+---
+
+## 4. 执行完成状态（2026-09-30 收尾）
+
+| 批次 | 内容 | 提交 | 验证 |
+|---|---|---|---|
+| B1 | A1 A2 A3 安全三件套 | `8176c89` | 3 个 PoC 转绿；`mvn test` 135 全绿；E2E 35/35 |
+| B2 | B1 B2 内容治理 | `d1a5810` | 2 个 PoC 转绿；`mvn test` 147 全绿 |
+| B3 | C1 C2 C3 C5 契约 | `e842314` | `mvn test` 155 全绿；E2E 49/49 |
+| B4 | D1-D4/D7-D10 + A4 A5 A6 | `4dc0452` | `_verify_b4.mjs` 15/15；`mvn test` 161 全绿 |
+| B5 | D5 D6 D11 D12 功能补完 | `f0beeff` | 幻筑封面 200/16941B、GLB 200/136B；E2E **60/60**；`mvn test` 165 全绿 |
+| B6 | E2 E3 测试保真度 | `8db5fa2` | `mvn test` 165 全绿（含 H2 CHECK 约束与种子数据） |
+| B7 | F1 F2 F3 文档校正 | 见收尾提交 | API 文档逐条校正 + 新增上传模块 |
+
+**总计**：测试用例 111 → **165**；E2E 断言 35 → **60**；新增 PoC/验证脚本 6 个。
+
+### 明确残留（未做，非"已完成"）
+| ID | 内容 | 为什么留 |
+|---|---|---|
+| E1 | 5 个 Controller 的 `@SpringBootTest + @AutoConfigureMockMvc` 端到端 | 规模大；`UploadController` 已有 standalone MockMvc 套件（8 例），但**授权规则仍缺真实过滤器链验证** |
+| E4 | `PaginationInnerInterceptor` 方言按 profile 切换（H2 用 `DbType.H2`） | 独立小改；否则分页与 MySQL 特有行为永远测不到 |
+| E2 剩余 | 3 处全通配符 `verify(...any())` | 风格改进；参数写错也能通过，不影响当前正确性 |
+| D12 完整版 | 通知列表真分页（数组 → Page） | 需同步改 `frontend/src/api/notification.js` 与通知视图；当前已加 200 条硬上限止血 |
+| — | 「下架已发布内容」接口 | 审核状态机上线后已发布内容不能再改判；产品若需要下架应新增独立接口 |
+| — | 其余 9 处 `(Long) auth.getPrincipal()` 统一改用 `CallerIdentity` | 纯重构；B2 已在 CommunityController 采用，其余待一次性统一 |
+
+### 下一步建议顺序
+1. E1 的 AdminController RBAC 端到端（挡住"普通用户可审核内容"这类最危险的回归）
+2. E4 分页方言（解锁 MySQL 特有行为的测试能力）
+3. D12 真分页（前后端一起改）
+4. 下架接口（若产品确有此需求）
