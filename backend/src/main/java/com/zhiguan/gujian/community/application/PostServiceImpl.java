@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -43,20 +44,48 @@ public class PostServiceImpl implements PostService {
 
     private static final DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
+    /** 审核状态机常量 —— 原先散落为字面量，易拼错且无法统一校验 */
+    private static final String STATUS_PENDING = "PENDING";
+    private static final String STATUS_APPROVED = "APPROVED";
+    private static final String STATUS_REJECTED = "REJECTED";
+    private static final Set<String> AUDIT_STATUSES = Set.of(STATUS_APPROVED, STATUS_REJECTED);
+
+    /**
+     * 详情可见性：APPROVED 对所有人公开；PENDING / REJECTED 仅作者本人与管理员可见。
+     * 这正是原先的漏洞 —— 详情接口不校验状态，而 GET /api/v1/posts/** 是 permitAll，
+     * 于是任何人枚举 id 就能读到尚未通过审核、甚至已被驳回的内容。
+     */
+    private boolean isVisibleTo(Post post, Long currentUserId, boolean isAdmin) {
+        if (STATUS_APPROVED.equals(post.getStatus())) {
+            return true;
+        }
+        if (isAdmin) {
+            return true;
+        }
+        return currentUserId != null && currentUserId.equals(post.getUserId());
+    }
+
     @Override
     public Page<PostBriefResponse> getPostFeed(int page, int size) {
         Page<Post> postPage = new Page<>(page, size);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .eq(Post::getStatus, "APPROVED")
+                .eq(Post::getStatus, STATUS_APPROVED)
                 .orderByDesc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
         return postBriefAssembler.buildPostBriefPage(result);
     }
 
     @Override
-    public PostDetailResponse getPostDetail(Long postId, Long currentUserId) {
+    public PostDetailResponse getPostDetail(Long postId, Long currentUserId, boolean isAdmin) {
         Post post = postMapper.selectById(postId);
         if (post == null) throw new CulturalApiException(404, "帖子不存在");
+
+        // 可见性规则：只有 APPROVED 对外公开；PENDING / REJECTED 仅作者本人与管理员可见。
+        // 不公开的内容一律返回 404（而不是 403）—— 403 会暴露"这个 id 存在但未公开"，
+        // 使任何人都能枚举出待审内容的存在性。
+        if (!isVisibleTo(post, currentUserId, isAdmin)) {
+            throw new CulturalApiException(404, "帖子不存在");
+        }
 
         User author = userMapper.selectById(post.getUserId());
         String preview2dPath = null, glb3dPath = null;
@@ -125,9 +154,9 @@ public class PostServiceImpl implements PostService {
 
         // 管理员发帖无需审核，直接发布
         if (user != null && "ADMIN".equals(user.getRole())) {
-            post.setStatus("APPROVED");
+            post.setStatus(STATUS_APPROVED);
         } else {
-            post.setStatus("PENDING");
+            post.setStatus(STATUS_PENDING);
         }
         postMapper.insert(post);
     }
@@ -135,15 +164,31 @@ public class PostServiceImpl implements PostService {
     @Override
     @Transactional
     public void auditPost(Long postId, String status, String rejectReason) {
+        // 目标状态白名单（Controller 已校验一次，这里再校验一次：service 也可能被内部调用）
+        // 注意 status 必须先判 null —— Set.of(...).contains(null) 会抛 NPE，
+        // 那会把「参数非法」变成 500 而不是 400。
+        if (status == null || !AUDIT_STATUSES.contains(status)) {
+            throw new CulturalApiException(400, "status 必须为 APPROVED 或 REJECTED");
+        }
+
         Post post = postMapper.selectById(postId);
         if (post == null) throw new CulturalApiException(404, "帖子不存在");
 
-        post.setStatus(status);
-        if ("REJECTED".equals(status)) {
-            post.setRejectReason(rejectReason != null ? rejectReason : "内容不符合社区规范");
-        } else {
-            post.setRejectReason(null);
+        // 状态机约束：只有 PENDING 可以被审核。
+        // 原先此处无条件覆盖 status，导致已发布的内容可被反复改判、甚至改回 PENDING。
+        if (!STATUS_PENDING.equals(post.getStatus())) {
+            throw new CulturalApiException(409,
+                    "该档案当前状态为 " + post.getStatus() + "，仅待审核（PENDING）的档案可被审核");
         }
+
+        boolean rejecting = STATUS_REJECTED.equals(status);
+        // 驳回必须填写理由 —— 接口文档与前端 UI 都是这么约定的，后端此前并未强制
+        if (rejecting && (rejectReason == null || rejectReason.isBlank())) {
+            throw new CulturalApiException(400, "驳回必须填写理由，理由将同步至作者站内信");
+        }
+
+        post.setStatus(status);
+        post.setRejectReason(rejecting ? rejectReason.trim() : null);
         postMapper.updateById(post);
     }
 
@@ -151,7 +196,7 @@ public class PostServiceImpl implements PostService {
     public Page<PostBriefResponse> getPendingPosts(int page, int size) {
         Page<Post> postPage = new Page<>(page, size);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
-                .eq(Post::getStatus, "PENDING")
+                .eq(Post::getStatus, STATUS_PENDING)
                 .orderByAsc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
         return postBriefAssembler.buildPostBriefPage(result);

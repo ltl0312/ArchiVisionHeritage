@@ -2,6 +2,7 @@ package com.zhiguan.gujian.community.interfaces;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhiguan.gujian.shared.common.Result;
+import com.zhiguan.gujian.shared.security.CallerIdentity;
 import com.zhiguan.gujian.community.interfaces.CommentRequest;
 import com.zhiguan.gujian.community.interfaces.CreatePostRequest;
 import com.zhiguan.gujian.community.interfaces.LikeRequest;
@@ -17,6 +18,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+/**
+ * 社区控制器。
+ *
+ * 身份读取统一走 {@link CallerIdentity}（原先是散落的 {@code (Long) auth.getPrincipal()}）：
+ * 既消除 ClassCastException 隐患，也让「需要登录」的端点有一致的 401 语义。
+ */
 @RestController
 @RequiredArgsConstructor
 public class CommunityController {
@@ -36,21 +43,21 @@ public class CommunityController {
         return Result.ok(postService.getPostFeed(page, size));
     }
 
-    /** 获取帖子详情 */
+    /**
+     * 获取帖子详情。
+     *
+     * 该端点是 permitAll，因此必须自带可见性判断：只有 APPROVED 对所有人开放，
+     * PENDING / REJECTED 仅作者本人与管理员可见（否则任何人都能枚举 id 读到未审核内容）。
+     */
     @GetMapping("/api/v1/posts/{id}")
     public Result<PostDetailResponse> getPostDetail(@PathVariable Long id, Authentication auth) {
-        Long currentUserId = null;
-        if (auth != null && auth.getPrincipal() instanceof Long) {
-            currentUserId = (Long) auth.getPrincipal();
-        }
-        return Result.ok(postService.getPostDetail(id, currentUserId));
+        return Result.ok(postService.getPostDetail(id, CallerIdentity.userId(auth), CallerIdentity.isAdmin(auth)));
     }
 
     /** 发表帖子 — 默认状态 PENDING，待管理员审核 */
     @PostMapping("/api/v1/posts")
     public Result<Void> createPost(@Valid @RequestBody CreatePostRequest request, Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        postService.createPost(userId, request);
+        postService.createPost(CallerIdentity.requireUserId(auth), request);
         return Result.ok();
     }
 
@@ -59,23 +66,20 @@ public class CommunityController {
     public Result<CommentResponse> addComment(@PathVariable Long id,
                                                @Valid @RequestBody CommentRequest request,
                                                Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        return Result.ok(commentService.addComment(userId, id, request));
+        return Result.ok(commentService.addComment(CallerIdentity.requireUserId(auth), id, request));
     }
 
     /** 点赞/取消点赞 (防抖) */
     @PostMapping("/api/v1/interactions/like")
     public Result<Void> toggleLike(@Valid @RequestBody LikeRequest request, Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        likeService.toggleLike(userId, request);
+        likeService.toggleLike(CallerIdentity.requireUserId(auth), request);
         return Result.ok();
     }
 
     /** 关注/取消关注 */
     @PostMapping("/api/v1/users/{id}/follow")
     public Result<Void> toggleFollow(@PathVariable Long id, Authentication auth) {
-        Long followerId = (Long) auth.getPrincipal();
-        followService.toggleFollow(followerId, id);
+        followService.toggleFollow(CallerIdentity.requireUserId(auth), id);
         return Result.ok();
     }
 
@@ -88,8 +92,7 @@ public class CommunityController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "12") int size,
             Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        return Result.ok(postService.getUserPosts(userId, page, size));
+        return Result.ok(postService.getUserPosts(CallerIdentity.requireUserId(auth), page, size));
     }
 
     /** 获取当前用户点赞过的帖子 */
@@ -98,7 +101,6 @@ public class CommunityController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "12") int size,
             Authentication auth) {
-        Long userId = (Long) auth.getPrincipal();
-        return Result.ok(likeService.getUserLikedPosts(userId, page, size));
+        return Result.ok(likeService.getUserLikedPosts(CallerIdentity.requireUserId(auth), page, size));
     }
 }
