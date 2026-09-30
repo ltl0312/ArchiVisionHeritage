@@ -90,8 +90,14 @@ class PostServiceTest {
     }
 
     @Test
-    @DisplayName("获取帖子流 - 只返回 APPROVED 状态帖子")
-    void getPostFeed_onlyApproved() {
+    @DisplayName("获取帖子流 - 分页与装配（status 过滤由 SQL 承担，Mock 无法验证）")
+    void getPostFeed_paginatesAndAssembles() {
+        // ⚠️ 原 @DisplayName 写「只返回 APPROVED」，但只 verify(selectPage(any(), any())) ——
+        //    删掉 PostServiceImpl 里的 .eq(Post::getStatus,"APPROVED") 该测试仍会通过，
+        //    是典型的"名字承诺了没验证的东西"。
+        //    纯 Mockito 无法读取 LambdaQueryWrapper 的条件（MyBatis-Plus 的 lambda 缓存
+        //    需要 MP 上下文），因此这里只断言分页与装配；status 过滤由真实数据库断言覆盖：
+        //    · Docker E2E「待审档案不出现在公开流」
         Page<Post> mockPage = new Page<>(1, 12);
         mockPage.setRecords(Arrays.asList(testPost));
         mockPage.setTotal(1);
@@ -106,6 +112,12 @@ class PostServiceTest {
 
         assertNotNull(result);
         assertEquals(1, result.getRecords().size());
+        assertEquals(1L, result.getTotal());
+        PostBriefResponse row = result.getRecords().get(0);
+        assertEquals(1L, row.getPostId());
+        assertEquals("测试帖子", row.getTitle());
+        assertEquals("测试用户", row.getAuthorNickname());
+        assertEquals("APPROVED", row.getStatus());
         verify(postMapper).selectPage(any(), any());
     }
 

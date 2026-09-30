@@ -1,6 +1,7 @@
 package com.zhiguan.gujian.analysis.interfaces;
 
 import com.zhiguan.gujian.analysis.application.AnalysisService;
+import com.zhiguan.gujian.analysis.domain.AnalysisDemo;
 import com.zhiguan.gujian.shared.common.CulturalApiException;
 import com.zhiguan.gujian.shared.common.GlobalExceptionHandler;
 import org.junit.jupiter.api.BeforeEach;
@@ -82,13 +83,23 @@ class ZhiXiControllerTest {
     }
 
     @Test
-    @DisplayName("获取演示数据列表")
+    @DisplayName("获取演示数据列表 - 返回真实条目")
     void listDemos_returnsList() throws Exception {
-        when(analysisService.listDemos()).thenReturn(Arrays.asList());
+        // ⚠️ 原实现桩返回空列表、只断言 code==200 —— data 为 null 或空数组都能通过，
+        //    没有任何实质断言。这里用非空数据把序列化契约钉住。
+        AnalysisDemo demo = new AnalysisDemo();
+        demo.setId(1L);
+        demo.setTitle("唐代斗栱结构解析 (VGGT 演示)");
+        demo.setMockJsonData("{\"scene_id\":\"dougong_tang_01\"}");
+        when(analysisService.listDemos()).thenReturn(Arrays.asList(demo));
 
         mockMvc.perform(get("/api/v1/analysis/zhixi/demos"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(200));
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.length()").value(1))
+                .andExpect(jsonPath("$.data[0].id").value(1))
+                .andExpect(jsonPath("$.data[0].title").value("唐代斗栱结构解析 (VGGT 演示)"))
+                .andExpect(jsonPath("$.data[0].mockJsonData").value("{\"scene_id\":\"dougong_tang_01\"}"));
     }
 
     @Test

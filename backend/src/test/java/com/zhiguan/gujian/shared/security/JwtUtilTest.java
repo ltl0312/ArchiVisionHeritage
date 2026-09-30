@@ -89,8 +89,24 @@ class JwtUtilTest {
     @Test
     @DisplayName("解析不存在的字段返回 null")
     void getToken_nonexistentClaim_returnsNull() {
+        // ⚠️ 原实现方法名说「解析不存在的字段返回 null」，方法体却断言 getRoleFromToken 非空 ——
+        //    名实不符且恒真（role 是 generateToken 必然写入的 claim）。
+        //    这里补上真正缺失的 claim 的断言：用同一个默认密钥解出 Claims 再查一个不存在的键。
         String token = jwtUtil.generateToken(1L, "testuser", "USER");
-        // role 字段存在，应该返回
-        assertNotNull(jwtUtil.getRoleFromToken(token));
+
+        // 存在的 claim 正常返回
+        assertEquals("USER", jwtUtil.getRoleFromToken(token));
+
+        // 不存在的 claim → null（jjwt 对缺失 claim 返回 null，而非抛异常）
+        javax.crypto.SecretKey key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                JwtUtil.DEFAULT_SECRET.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        io.jsonwebtoken.Claims claims = io.jsonwebtoken.Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token)
+                .getPayload();
+
+        assertNull(claims.get("nonexistent", String.class));
+        assertNotNull(claims.get("role", String.class));
     }
 }

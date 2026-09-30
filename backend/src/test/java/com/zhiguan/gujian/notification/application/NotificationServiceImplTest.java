@@ -48,8 +48,8 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    @DisplayName("获取通知列表 - 按时间倒序")
-    void getNotifications_orderedByTime() {
+    @DisplayName("获取通知列表 - 逐条字段映射正确")
+    void getNotifications_mapsFieldsForEachRecord() {
         Notification n2 = new Notification();
         n2.setId(2L);
         n2.setUserId(1L);
@@ -62,16 +62,21 @@ class NotificationServiceImplTest {
 
         List<NotificationResponse> result = notificationService.getNotifications(1L);
 
-        assertNotNull(result);
         assertEquals(2, result.size());
-        assertEquals(1L, result.get(getFirstIndex(result)).getId());
-    }
+        // 逐条核对映射（原实现是 assertNotNull + 一个"扫描自己刚构造的下标"的同义反复，恒真）
+        NotificationResponse first = result.get(0);
+        assertEquals(1L, first.getId());
+        assertEquals("测试通知", first.getMessage());
+        assertFalse(first.isRead(), "未读应映射为 read=false");
 
-    private int getFirstIndex(List<NotificationResponse> list) {
-        for (int i = 0; i < list.size(); i++) {
-            if (list.get(i).getId() == 1L) return i;
-        }
-        return 0;
+        NotificationResponse second = result.get(1);
+        assertEquals(2L, second.getId());
+        assertEquals("通知2", second.getMessage());
+        assertTrue(second.isRead(), "已读应映射为 read=true");
+
+        // 排序由 SQL 的 orderByDesc 负责，Mock 无法验证；
+        // 真实排序由后端集成测试与 Docker E2E 覆盖（通知按 createdAt 倒序）
+        verify(notificationMapper, times(1)).selectList(any(LambdaQueryWrapper.class));
     }
 
     @Test
@@ -123,18 +128,18 @@ class NotificationServiceImplTest {
     }
 
     @Test
-    @DisplayName("全部标记已读 - 验证方法调用")
+    @DisplayName("全部标记已读 - 发出一次批量更新")
     void markAllAsRead() {
-        // 由于 MyBatis Plus Lambda 缓存问题，在纯单元测试中无法正确测试
-        // 这个测试在集成测试中会正常工作
-        // 这里我们只验证方法存在且可调用
+        // 原实现只断言 assertNotNull(一个 @Mock) + 反射方法存在性 —— 恒真、零行为覆盖。
+        // 这里至少把"确实发起了一次批量更新"钉住。
+        // 说明：更新条件（按 userId 过滤）写在 LambdaUpdateWrapper 里，纯 Mockito 无法读取
+        // （MyBatis-Plus 的 lambda 缓存需要 MP 上下文），该筛选由真实数据库的行为保证。
+        when(notificationMapper.update(isNull(), any(LambdaUpdateWrapper.class))).thenReturn(2);
 
-        // 验证 notificationMapper 不为 null
-        assertNotNull(notificationMapper);
+        assertDoesNotThrow(() -> notificationService.markAllAsRead(1L));
 
-        // 验证方法存在（通过反射）
-        assertDoesNotThrow(() -> {
-            notificationService.getClass().getMethod("markAllAsRead", Long.class);
-        });
+        verify(notificationMapper, times(1)).update(isNull(), any(LambdaUpdateWrapper.class));
+        // 不应退化成逐条更新
+        verify(notificationMapper, never()).updateById(any());
     }
 }
