@@ -1,12 +1,17 @@
 # ========== 依赖 & 构建产物 ==========
 node_modules/
 dist/
+# 并行/分片验证用的临时构建输出（如 vite build --outDir dist-check-xxx）
+dist-*/
 target/
 *.class
 release-build/
 release-new/
 *.asar
 *.tar.gz
+
+# 回归验证产出的截图与报告（体积大、可随时重跑生成）
+.workbuddy/shots/
 
 #========== 脚本===========
 # *.py
