@@ -1,93 +1,62 @@
 <template>
   <aside class="sidebar">
-    <!-- Logo -->
+    <!-- 品牌 -->
     <div class="sidebar-logo" @click="router.push('/home')">
       <div class="logo-icon-box">
-        <span class="logo-glyph">&#x2302;</span>
+        <el-icon :size="20"><HomeFilled /></el-icon>
       </div>
-      <div>
+      <div class="logo-text">
         <h1 class="logo-name">智观·古建</h1>
-        <p class="logo-sub">ZHIGUAN HERITAGE</p>
+        <p class="logo-sub">ARCHIVISION HERITAGE</p>
       </div>
     </div>
 
-    <!-- 主导航 -->
-    <nav class="sidebar-nav">
+    <div class="sidebar-hr"></div>
+
+    <!-- 主导航（5 项，与底栏共用同一份定义） -->
+    <nav class="sidebar-nav" aria-label="主导航">
       <router-link
         v-for="item in navItems"
         :key="item.id"
         :to="item.path"
         class="nav-btn"
         :class="{ active: isActive(item.path) }"
+        :aria-current="isActive(item.path) ? 'page' : undefined"
       >
-        <div class="nav-icon-box" :class="{ active: isActive(item.path) }">
-          <el-icon :size="20"><component :is="item.icon" /></el-icon>
-        </div>
-        <div class="nav-text">
+        <span class="nav-icon-box" :class="{ active: isActive(item.path) }">
+          <el-icon :size="18"><component :is="item.icon" /></el-icon>
+        </span>
+        <span class="nav-text">
           <span class="nav-label">{{ item.label }}</span>
           <span class="nav-desc">{{ item.desc }}</span>
-        </div>
+        </span>
       </router-link>
     </nav>
 
-    <!-- 底部用户区 -->
+    <div class="rail-spacer"></div>
+
+    <!-- 底部用户区（点击开菜单） -->
     <div class="sidebar-footer" ref="menuRef">
-      <!-- 弹出菜单 -->
-      <transition name="menu-pop">
-        <div v-if="menuOpen" class="user-menu">
-          <button class="menu-item" @click="goAndClose('/profile')">
-            <el-icon :size="16"><User /></el-icon> 个人信息
-          </button>
-          <button class="menu-item" @click="goAndClose('/settings')">
-            <el-icon :size="16"><Setting /></el-icon> 设置
-          </button>
-          <button class="menu-item" @click="goAndClose('/notifications')">
-            <el-icon :size="16"><Bell /></el-icon>
-            <!-- 未读徽标：接线 unreadCount（原为死数据，仅拉取不展示） -->
-            <el-badge :value="notifStore.unreadCount" :hidden="notifStore.unreadCount === 0" :max="99">
-              通知中心
-            </el-badge>
-          </button>
+      <UserMenu :open="menuOpen" placement="up" @close="menuOpen = false" />
 
-          <div class="menu-divider"></div>
-
-          <button class="menu-item menu-item-theme" @click="themeStore.toggleTheme">
-            <div class="menu-item-left">
-              <el-icon :size="16">
-                <Sunny v-if="!themeStore.isDark" />
-                <Moon v-else />
-              </el-icon>
-              昼夜流转
-            </div>
-            <span class="theme-tag">{{ themeStore.isDark ? '夜影' : '晨光' }}</span>
-          </button>
-
-          <template v-if="userStore.isAdmin">
-            <div class="menu-divider"></div>
-            <button class="menu-item menu-item-admin" @click="goAndClose('/admin')">
-              <el-icon :size="16"><WarningFilled /></el-icon> 管理控制台
-            </button>
-          </template>
-
-          <div class="menu-divider"></div>
-          <button class="menu-item menu-item-logout" @click="handleLogout">
-            <el-icon :size="16"><SwitchButton /></el-icon> 安全退出
-          </button>
-        </div>
-      </transition>
-
-      <!-- 触发区 -->
-      <div class="user-trigger" @click="menuOpen = !menuOpen" :class="{ active: menuOpen }">
-        <el-avatar :size="40" :icon="UserFilled" />
-        <div class="user-text">
+      <button
+        class="user-trigger"
+        :class="{ 'is-open': menuOpen }"
+        aria-haspopup="menu"
+        :aria-expanded="menuOpen ? 'true' : 'false'"
+        aria-controls="rail-user-menu"
+        @click="menuOpen = !menuOpen"
+      >
+        <el-avatar :size="34" :icon="UserFilled" class="user-avatar" />
+        <span class="user-text">
           <span class="user-name">
-            {{ userStore.username || '用户' }}
+            {{ userStore.username || '访客' }}
             <el-icon v-if="userStore.isAdmin" :size="12" class="admin-star"><WarningFilled /></el-icon>
           </span>
-          <span class="user-level">Lv.4 营造学徒</span>
-        </div>
-        <el-icon :size="16" class="user-arrow" :class="{ open: menuOpen }"><ArrowRight /></el-icon>
-      </div>
+          <span class="user-level">{{ userStore.isAdmin ? '平台管理员' : 'VGGT 认证匠人' }}</span>
+        </span>
+        <el-icon :size="14" class="user-arrow" :class="{ open: menuOpen }"><ArrowRight /></el-icon>
+      </button>
     </div>
   </aside>
 </template>
@@ -96,201 +65,186 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
-  HomeFilled, MagicStick, Search, Bell, UserFilled,
-  User, Setting, Sunny, Moon, WarningFilled, SwitchButton, ArrowRight
+  HomeFilled, Box, MagicStick, Folder, User,
+  UserFilled, WarningFilled, ArrowRight
 } from '@element-plus/icons-vue'
+import UserMenu from './UserMenu.vue'
 import { useUserStore } from '@/stores/user'
-import { useNotificationStore } from '@/stores/notification'
-import { useThemeStore } from '@/stores/theme'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
-const notifStore = useNotificationStore()
-const themeStore = useThemeStore()
 
-/* ═══ 导航定义 ═══ */
+/* ═══ 导航定义（5 项 · 决策 4）═══
+   顺序即信息架构：先自我说明（营造志）→ 两个核心能力 → 我的沉淀 → 他人内容 */
 const navItems = [
-  { id: 'community', path: '/home', icon: HomeFilled, label: '文化游廊', desc: '发现与分享' },
-  { id: 'zhixi',     path: '/zhixi',   icon: Search,      label: '古建智析', desc: 'VGGT 视觉解析' },
-  { id: 'huanzhu',   path: '/huanzhu', icon: MagicStick,  label: '一键幻筑', desc: 'AI 3D 模型生成' },
+  { id: 'feed',      path: '/home',      icon: HomeFilled, label: '营造志',   desc: '平台与精选档案' },
+  { id: 'zhixi',     path: '/zhixi',     icon: Box,        label: '古建智析', desc: 'VGGT 视觉解析' },
+  { id: 'huanzhu',   path: '/huanzhu',   icon: MagicStick, label: '一键幻筑', desc: 'AI 3D 模型生成' },
+  { id: 'archive',   path: '/archive',   icon: Folder,     label: '我的档案', desc: '解析 · 幻筑 · 收藏' },
+  { id: 'community', path: '/community', icon: User,       label: '匠人社区', desc: '发现与交流' }
 ]
 
+/** 详情页也要点亮其归属的一级入口（/community/post/1 → 匠人社区） */
 function isActive(path) {
-  return route.path === path || (path === '/home' && route.path === '/')
+  if (route.path === path) return true
+  if (path === '/home') return route.path === '/'
+  return route.path.startsWith(`${path}/`)
 }
 
-/* ═══ 用户菜单 ═══ */
+/* ═══ 用户菜单：点外部 / Esc 关闭（侧栏与顶栏各自独立持有状态） ═══ */
 const menuOpen = ref(false)
 const menuRef = ref(null)
 
-function goAndClose(path) {
-  menuOpen.value = false
-  router.push(path)
-}
-
-function handleLogout() {
-  menuOpen.value = false
-  userStore.logout()
-}
-
 function onDocClick(e) {
-  if (menuRef.value && !menuRef.value.contains(e.target)) {
-    menuOpen.value = false
-  }
+  if (menuRef.value && !menuRef.value.contains(e.target)) menuOpen.value = false
+}
+function onKeydown(e) {
+  if (e.key === 'Escape') menuOpen.value = false
 }
 
 onMounted(() => {
   document.addEventListener('mousedown', onDocClick)
+  document.addEventListener('keydown', onKeydown)
 })
 onUnmounted(() => {
   document.removeEventListener('mousedown', onDocClick)
+  document.removeEventListener('keydown', onKeydown)
 })
 </script>
 
 <style scoped>
-/* ═══ 侧边栏（原 App.vue scoped 侧边栏块逐字搬移）═══ */
+/* ═══ 侧栏（V4：栏层实底 --color-bg-elev，与 bg-base 拉开分界）═══ */
 .sidebar {
-  width: 260px;
-  min-width: 260px;
+  width: var(--rail-w);
+  min-width: var(--rail-w);
   height: 100vh;
   display: flex;
   flex-direction: column;
-  padding: var(--spacing-lg);
-  background: var(--color-surface);
-  border-right: 1px solid var(--color-border);
+  padding: 26px 12px 14px;
+  background: var(--color-bg-elev);
+  border-right: 1px solid var(--color-border-light);
   z-index: 20;
   transition: background-color var(--transition-theme), border-color var(--transition-theme);
 }
 
-[data-theme="dark"] .sidebar {
-  border-right-color: rgba(255, 255, 255, 0.06);
-}
-
-/* Logo */
+/* 品牌 */
 .sidebar-logo {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-top: 4px;
-  margin-bottom: 40px;
+  padding: 0 12px 22px;
   cursor: pointer;
   user-select: none;
 }
 
 .logo-icon-box {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, var(--color-accent), var(--color-rose));
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(225, 29, 72, 0.2);
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--color-accent-soft);
+  border: 1px solid var(--color-border-gold);
+  color: var(--color-accent-text);
 }
 
-.logo-glyph {
-  font-size: 22px;
-  color: #FFF;
-  line-height: 1;
-}
+.logo-text { min-width: 0; }
 
 .logo-name {
   font-family: var(--font-family-serif);
   font-size: 18px;
   font-weight: 600;
   color: var(--color-text-main);
-  letter-spacing: 2px;
+  letter-spacing: 0.5px;
 }
 
 .logo-sub {
-  font-size: 10px;
-  color: var(--color-text-muted);
-  letter-spacing: 2px;
+  font-size: 9px;
+  color: var(--color-text-ghost);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  margin-top: 2px;
+}
+
+.sidebar-hr {
+  height: 1px;
+  background: var(--color-border-light);
+  margin: 0 12px 14px;
 }
 
 /* 导航 */
 .sidebar-nav {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .nav-btn {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 14px;
-  border-radius: var(--radius-xl);
+  padding: 11px 12px;
+  border-radius: 10px;
   text-decoration: none;
-  transition: all var(--transition-normal);
-  position: relative;
+  color: var(--color-text-muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color var(--transition-normal), color var(--transition-normal);
 }
 
 .nav-btn:hover {
-  background: var(--color-bg-subtle);
+  background: var(--color-surface);
+  color: var(--color-text-sub);
 }
 
-.nav-btn.active {
-  background: var(--color-surface-hover);
-  box-shadow: var(--shadow-card);
-  border: 1px solid var(--color-border);
-}
+.nav-btn.active { color: var(--color-accent-text); }
 
-[data-theme="dark"] .nav-btn.active {
-  border-color: rgba(255, 255, 255, 0.06);
+/* 金色左侧标记（预览页 .nav.is-active::before） */
+.nav-btn.active::before {
+  content: '';
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--color-accent);
 }
 
 .nav-icon-box {
-  width: 36px;
-  height: 36px;
-  border-radius: var(--radius-md);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-bg-subtle);
-  color: var(--color-text-sub);
-  transition: all var(--transition-normal);
-  flex-shrink: 0;
-}
-
-.nav-btn:hover .nav-icon-box {
-  background: rgba(0, 0, 0, 0.08);
-}
-
-.nav-icon-box.active {
-  background: var(--color-accent-soft);
-  color: var(--color-accent);
-}
-
-[data-theme="dark"] .nav-icon-box.active {
-  color: var(--color-accent-light);
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: grid;
+  place-items: center;
+  color: currentColor;
 }
 
 .nav-text {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .nav-label {
   font-size: 14px;
   font-weight: 500;
-  color: var(--color-text-main);
   letter-spacing: 1px;
-}
-
-.nav-btn.active .nav-label {
-  color: var(--color-accent);
+  color: inherit;
+  white-space: nowrap;
 }
 
 .nav-desc {
   font-size: 10px;
-  color: var(--color-text-muted);
+  color: var(--color-text-ghost);
   margin-top: 1px;
+  white-space: nowrap;
 }
+
+.rail-spacer { flex: 1; }
 
 /* ═══ 底部用户区 ═══ */
 .sidebar-footer {
@@ -298,117 +252,28 @@ onUnmounted(() => {
   position: relative;
 }
 
-/* 用户弹出菜单 */
-.user-menu {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  margin-bottom: 12px;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  padding: 6px;
-  box-shadow: var(--shadow-modal);
-  z-index: 30;
-}
-
-[data-theme="dark"] .user-menu {
-  border-color: rgba(255, 255, 255, 0.06);
-}
-
-.menu-item {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--color-text-main);
-  font-size: 13px;
-  cursor: pointer;
-  transition: background var(--transition-fast);
-}
-
-.menu-item:hover {
-  background: var(--color-bg-subtle);
-}
-
-.menu-item-left {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-}
-
-.menu-item-theme {
-  justify-content: space-between;
-}
-
-.theme-tag {
-  font-size: 11px;
-  color: var(--color-text-muted);
-  background: var(--color-bg-subtle);
-  border: 1px solid var(--color-border);
-  padding: 2px 8px;
-  border-radius: var(--radius-sm);
-}
-
-.menu-item-admin {
-  color: var(--color-rose);
-}
-
-.menu-item-admin:hover {
-  background: var(--color-rose-soft);
-}
-
-.menu-item-logout {
-  color: var(--color-text-muted);
-}
-
-.menu-divider {
-  height: 1px;
-  background: var(--color-border);
-  margin: 4px 0;
-}
-
-/* 菜单弹出动画 */
-.menu-pop-enter-active {
-  transition: all 0.25s ease;
-}
-.menu-pop-leave-active {
-  transition: all 0.2s ease;
-}
-.menu-pop-enter-from {
-  opacity: 0;
-  transform: translateY(8px) scale(0.95);
-}
-.menu-pop-leave-to {
-  opacity: 0;
-  transform: translateY(8px) scale(0.95);
-}
-
-/* 用户触发区 */
 .user-trigger {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 12px;
-  border-top: 1px solid var(--color-border);
+  gap: 11px;
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  border: 1px solid transparent;
   cursor: pointer;
-  transition: opacity var(--transition-fast);
-  border-radius: var(--radius-md);
+  text-align: left;
+  transition: background-color var(--transition-normal), border-color var(--transition-normal);
 }
 
-.user-trigger:hover {
-  background: var(--color-bg-subtle);
+.user-trigger:hover { border-color: var(--color-border-gold); }
+
+.user-trigger.is-open {
+  background: var(--color-surface-hover);
+  border-color: var(--color-border-gold);
 }
 
-.user-trigger.active {
-  opacity: 0.5;
-}
+.user-avatar { flex: 0 0 34px; }
 
 .user-text {
   flex: 1;
@@ -416,63 +281,40 @@ onUnmounted(() => {
 }
 
 .user-name {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   color: var(--color-text-main);
   display: flex;
   align-items: center;
   gap: 4px;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.admin-star {
-  color: var(--color-accent);
-}
+.admin-star { color: var(--color-accent-text); flex: 0 0 auto; }
 
 .user-level {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--color-text-muted);
   display: block;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .user-arrow {
   color: var(--color-text-muted);
   transition: transform var(--transition-normal);
-  flex-shrink: 0;
+  flex: 0 0 auto;
 }
 
-.user-arrow.open {
-  transform: rotate(-90deg);
-}
+.user-arrow.open { transform: rotate(-90deg); }
 
-/* 移动端适配 */
-@media (max-width: 768px) {
-  .sidebar {
-    width: 72px;
-    min-width: 72px;
-    padding: var(--spacing-md) var(--spacing-sm);
-  }
-
-  .sidebar-logo {
-    justify-content: center;
-    margin-bottom: 24px;
-  }
-
-  .logo-name,
-  .logo-sub,
-  .nav-text,
-  .user-text,
-  .user-arrow {
-    display: none;
-  }
-
-  .nav-btn {
-    justify-content: center;
-    padding: 10px;
-  }
-
-  .user-trigger {
-    justify-content: center;
-    padding: 10px 0;
-  }
-}
+/* ═══════════════════════════════════════════════════════════════
+   移动端规则已收敛到 style.css 的全局 ≤900px 区块（D-9 单一来源）。
+   本组件不再自带断点，避免与全局规则并存导致行为不可预测。
+   ═══════════════════════════════════════════════════════════════ */
 </style>
