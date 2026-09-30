@@ -81,17 +81,17 @@
         <el-form-item label="用户名">
           <el-input
             v-model="registerForm.username"
-            placeholder="创建用户名"
+            placeholder="登录用的账号名，2–64 位"
             size="large"
             autocomplete="username"
           />
         </el-form-item>
-        <el-form-item label="邮箱">
+        <el-form-item label="昵称">
           <el-input
-            v-model="registerForm.email"
-            placeholder="example@mail.com"
+            v-model="registerForm.nickname"
+            placeholder="展示给其他匠人的名字"
             size="large"
-            autocomplete="email"
+            autocomplete="nickname"
           />
         </el-form-item>
         <el-form-item label="密码">
@@ -142,7 +142,12 @@ const loading = ref(false)
 const errorMsg = ref('')
 
 const loginForm = ref({ username: '', password: '' })
-const registerForm = ref({ username: '', email: '', password: '' })
+/**
+ * 注册表单字段必须与后端 RegisterRequest 一致：{ username, password, nickname }。
+ * 原实现收集的是 email —— 而 `user` 表根本没有 email 列，后端 `@Valid` 会因缺少
+ * 必填的 nickname 直接返回 400，即注册功能一直是坏的（Docker E2E 已实证）。
+ */
+const registerForm = ref({ username: '', nickname: '', password: '' })
 
 /* 切换模式时清掉上一次的错误，避免串台 */
 watch(mode, () => { errorMsg.value = '' })
@@ -173,9 +178,13 @@ async function handleLogin() {
 
 async function handleRegister() {
   errorMsg.value = ''
-  const { username, email, password } = registerForm.value
-  if (!username || !email || !password) {
-    errorMsg.value = '请填写完整的用户名、邮箱与密码'
+  const { username, nickname, password } = registerForm.value
+  if (!username || !nickname || !password) {
+    errorMsg.value = '请填写完整的用户名、昵称与密码'
+    return
+  }
+  if (username.length < 2) {
+    errorMsg.value = '用户名至少 2 位'
     return
   }
   if (password.length < 6) {
@@ -184,13 +193,13 @@ async function handleRegister() {
   }
   loading.value = true
   try {
-    await userStore.register(registerForm.value)
+    await userStore.register({ username, nickname, password })
     ElMessage.success('注册成功，请登录')
     mode.value = 'login'
     loginForm.value.username = username
     loginForm.value.password = ''
   } catch (e) {
-    errorMsg.value = e?.message || '注册失败，请更换用户名或邮箱后重试'
+    errorMsg.value = e?.message || '注册失败，请更换用户名后重试'
   } finally {
     loading.value = false
   }
