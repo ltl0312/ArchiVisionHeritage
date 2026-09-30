@@ -67,6 +67,9 @@ services:
       DB_NAME: zhiguan_gujian
       DB_USERNAME: root
       DB_PASSWORD: ${DB_PASSWORD}
+      # ⚠️ 必须注入：不留默认值，否则任何读过仓库的人都能伪造管理员令牌
+      #    生成：openssl rand -hex 48
+      JWT_SECRET: ${JWT_SECRET}
       REDIS_HOST: redis
       REDIS_PORT: "6379"
       VGGT_API_URL: http://vggt-api:8000/v1/analyze

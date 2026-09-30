@@ -51,9 +51,14 @@ zhiguan:
     local-path: ./assets
     url-prefix: /assets
 
-  # JWT 密钥与过期时间（生产环境用 JWT_SECRET 环境变量覆盖）
+  # JWT 密钥与过期时间
+  # ⚠️ 密钥必须由环境变量提供，**不得在配置里留默认值**。
+  #    原先此处写死了默认密钥，而 docker-compose 又未注入 JWT_SECRET，
+  #    导致任何读过本仓库的人都能用同一密钥自签 role=ADMIN 的令牌
+  #    （已实测：伪造令牌访问 /api/v1/admin/** 返回 200）。
+  #    生成方式：openssl rand -hex 48
   jwt:
-    secret: ${JWT_SECRET:ZhiGuan-GuJian-2024-SecretKey-For-JWT-Token-Generation-Must-Be-Long-Enough}
+    secret: ${JWT_SECRET}
     expiration: 86400000
 
   # 幻筑任务 — 模拟耗时 / 资产目录 / 异步线程池参数外置（P2-8）

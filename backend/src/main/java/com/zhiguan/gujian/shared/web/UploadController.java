@@ -9,9 +9,15 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * 通用文件上传接口
+ *
+ * 安全说明（原实现的两个漏洞已实测复现并修复）：
+ *  - {@code subDir} 改为**白名单**，不再接受任意字符串（原先 {@code ../../} 可写到 assets 之外）；
+ *  - 文件类型改为**按魔数嗅探**（{@link FileUtil#saveImage}），不再信任客户端声明的
+ *    Content-Type —— 原先把 HTML 声明成 image/png 即可落盘为 .html，构成同源存储型 XSS。
  */
 @Slf4j
 @RestController
@@ -22,9 +28,9 @@ public class UploadController {
     private final FileUtil fileUtil;
 
     private static final long MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-    private static final String[] ALLOWED_TYPES = {
-            "image/jpeg", "image/png", "image/gif", "image/webp"
-    };
+
+    /** 允许的存放子目录 —— 与前端实际使用的目录保持一致 */
+    private static final Set<String> ALLOWED_SUB_DIRS = Set.of("covers", "images", "avatars");
 
     /**
      * 上传图片文件
@@ -40,32 +46,18 @@ public class UploadController {
             throw new CulturalApiException(400, "请选择要上传的文件");
         }
 
-        // 2. 校验文件大小
+        // 2. 校验文件大小（spring.servlet.multipart 亦有一层 5MB 限制 → 413）
         if (file.getSize() > MAX_FILE_SIZE) {
             throw new CulturalApiException(400, "文件大小不能超过 5MB");
         }
 
-        // 3. 校验文件类型
-        String contentType = file.getContentType();
-        boolean isAllowed = false;
-        for (String type : ALLOWED_TYPES) {
-            if (type.equals(contentType)) {
-                isAllowed = true;
-                break;
-            }
-        }
-        if (!isAllowed) {
-            throw new CulturalApiException(400, "只支持 JPG, PNG, GIF, WebP 格式的图片");
+        // 3. 校验存放目录（白名单）—— 杜绝 subDir 路径穿越
+        if (!ALLOWED_SUB_DIRS.contains(subDir)) {
+            throw new CulturalApiException(400, "不支持的存放目录: " + subDir);
         }
 
-        // 4. 保存文件
-        try {
-            String url = fileUtil.saveFile(file, subDir);
-            log.info("文件上传成功: {}", url);
-            return Result.ok(Map.of("url", url));
-        } catch (Exception e) {
-            log.error("文件上传失败", e);
-            throw new CulturalApiException(500, "文件上传失败，请稍后重试");
-        }
+        // 4. 按魔数嗅探真实类型后落盘（扩展名由嗅探结果决定，与文件名无关）
+        String url = fileUtil.saveImage(file, subDir);
+        return Result.ok(Map.of("url", url));
     }
 }
