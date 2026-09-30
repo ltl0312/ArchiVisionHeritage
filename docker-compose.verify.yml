@@ -1,0 +1,25 @@
+# 仅用于本地集成验证的 Compose 覆盖文件（验证后删除，不提交）
+#
+# 背景：
+#   · 主机 8080 已被无关容器 searxng 占用 → backend 无法发布 8080
+#   · 主机 3306 已被本机 MySQL 占用
+# 因此这里把「对外发布端口」重置：
+#   · 前端发布到 8088（容器内仍是 nginx:80）
+#   · backend / mysql / redis / vggt-api 不发布到主机 —— 集成验证走
+#     「浏览器 → 前端 nginx → 容器网络 → backend」这条真实生产链路，
+#     与 docker-compose.yml 中 nginx.conf 的反代配置完全一致。
+#
+# `!reset` 把序列清空（移除发布），`!override` 才是"替换而非追加合并"。
+# 二者都是 Compose 的显式标记（Compose ≥ 2.24）；否则序列会被**追加合并**。
+services:
+  mysql:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  vggt-api:
+    ports: !reset []
+  backend:
+    ports: !reset []
+  frontend:
+    ports: !override
+      - "8088:80"

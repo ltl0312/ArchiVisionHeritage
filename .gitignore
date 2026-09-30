@@ -12,6 +12,7 @@ release-new/
 
 # 回归验证产出的截图与报告（体积大、可随时重跑生成）
 .workbuddy/shots/
+.workbuddy/shots-*/
 
 #========== 脚本===========
 # *.py

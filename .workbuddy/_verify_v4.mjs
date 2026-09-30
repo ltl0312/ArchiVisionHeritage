@@ -56,18 +56,25 @@ const SKIP_SHOTS = process.argv.includes('--no-shots')
 const SETTLE_MS = Number(argOf('settle', '1200'))
 /**
  * 受保护路由（/archive、/admin、/settings、/notifications）在无 token 时会被
- * 路由守卫重定向到 /login，从而测不到真实页面。这里注入一枚**合成 JWT**
- * （仅用于前端守卫与 payload 解析，不参与任何后端校验）来打开这些页面。
- *   --auth=admin → role=ADMIN（可进 /admin）
- *   --auth=user  → role=USER
- *   --auth=none  → 不注入（默认）
+ * 路由守卫重定向到 /login，从而测不到真实页面。
+ *   --auth=admin|user  注入**合成** JWT（仅够通过前端守卫，后端会拒签）
+ *   --auth=none        不注入（默认）
+ *   --token=<jwt>      注入**真实** token（如对着 Docker 栈跑时，先用
+ *                      /api/v1/auth/login 拿真 token），这样数据请求也能通过
  */
 const AUTH = argOf('auth', 'none')
+const REAL_TOKEN = argOf('token', '')
 
 function synthToken(role) {
   const payload = { sub: '1', username: role === 'admin' ? 'admin' : 'demo_user', role: role === 'admin' ? 'ADMIN' : 'USER' }
   const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url')
   return `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64(payload)}.verify-only`
+}
+
+function tokenToInject() {
+  if (REAL_TOKEN) return REAL_TOKEN
+  if (AUTH !== 'none') return synthToken(AUTH)
+  return ''
 }
 
 /* ══════════════════════ CDP 最小客户端 ══════════════════════ */
@@ -175,9 +182,10 @@ async function closeTarget(id) {
 /* ══════════════════════ 注入脚本（导航前） ══════════════════════ */
 
 function initScript(theme) {
+  const tk = tokenToInject()
   return `
     try { localStorage.setItem('theme', ${JSON.stringify(theme)}); } catch (e) {}
-    ${AUTH !== 'none' ? `try { localStorage.setItem('token', ${JSON.stringify(synthToken(AUTH))}); } catch (e) {}` : ''}
+    ${tk ? `try { localStorage.setItem('token', ${JSON.stringify(tk)}); } catch (e) {}` : ''}
     window.__v4cls = 0;
     window.__v4shifts = [];
     try {
