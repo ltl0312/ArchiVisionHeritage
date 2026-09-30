@@ -1,373 +1,418 @@
 <template>
-  <div class="settings-page animate-fade-in">
-    <header class="page-title-bar">
-      <h2 class="page-title">个人设置</h2>
-      <p class="page-subtitle">管理您的视觉偏好与平台信息</p>
-    </header>
+  <div class="view-shell">
+    <!-- ═══ 工具行：返回 + 账号摘要 ═══ -->
+    <div class="v4-toolrow">
+      <button type="button" class="v4-btn v4-btn--ghost v4-btn--sm" @click="goBack">
+        <el-icon :size="14"><ArrowLeft /></el-icon>返回
+      </button>
 
-    <!-- 卡片一：视觉偏好 -->
-    <section class="settings-card">
-      <div class="card-section-header">
-        <el-icon class="section-icon"><BrushFilled /></el-icon>
-        <span>视觉偏好</span>
+      <div class="v4-headstats">
+        <template v-if="profile?.username">
+          <span class="v4-pill v4-pill--mut">{{ profile.username }}</span>
+          <span class="v4-pill" :class="isAdmin ? 'v4-pill--gold' : 'v4-pill--jade'">
+            {{ profile.role }}
+          </span>
+        </template>
       </div>
+    </div>
 
-      <div class="setting-group">
-        <!-- 深色/浅色模式 -->
-        <div class="pref-item">
-          <div class="pref-info">
-            <div class="pref-title">
-              <el-icon class="pref-title-icon" :class="{ 'is-dark': themeStore.isDark }">
-                <Sunny v-if="!themeStore.isDark" />
-                <Moon v-else />
-              </el-icon>
-              <span>深色 / 浅色模式</span>
-            </div>
-            <p class="pref-desc">
-              {{ themeStore.isDark ? '当前为深色模式，适合夜间阅读古建文献' : '当前为浅色模式，如同宣纸画卷般清雅' }}
-            </p>
+    <div class="v4-settings-grid">
+      <!-- ═══════════ ① 视觉偏好 · VISUAL ═══════════ -->
+      <section class="v4-card">
+        <div class="v4-cardhd">
+          <h3>视觉偏好</h3>
+          <span class="k">VISUAL</span>
+        </div>
+
+        <!-- 昼夜流转：读 / 写同一个 themeStore，与侧栏菜单双向同步 -->
+        <div class="v4-kv-row">
+          <span>昼夜流转</span>
+          <div class="v4-seg v4-seg--sm" role="group" aria-label="昼夜流转">
+            <button
+              type="button"
+              :class="{ 'is-on': themeStore.isDark }"
+              :aria-pressed="themeStore.isDark"
+              @click="themeStore.setTheme('dark')"
+            >
+              玄墨
+            </button>
+            <button
+              type="button"
+              :class="{ 'is-on': !themeStore.isDark }"
+              :aria-pressed="!themeStore.isDark"
+              @click="themeStore.setTheme('light')"
+            >
+              宣纸
+            </button>
           </div>
-          <el-switch
-            :model-value="themeStore.isDark"
-            class="theme-switch"
-            :active-icon="Moon"
-            :inactive-icon="Sunny"
-            inline-prompt
-            @change="themeStore.toggleTheme"
-          />
         </div>
 
-        <hr class="settings-divider" />
-
-        <!-- 通知设置 -->
-        <div class="group-label">
-          <el-icon class="label-icon"><Bell /></el-icon>
-          <span>通知偏好</span>
-        </div>
-
-        <div class="pref-item">
-          <div class="pref-info">
-            <span class="pref-item-title">幻筑完成通知</span>
-            <p class="pref-desc">当您的一键幻筑任务生成完成时，发送站内信通知</p>
+        <!-- 信息密度：切换 html.density-compact，真实改变 .view-shell / .v4-card 等间距 -->
+        <div class="v4-kv-row">
+          <span>信息密度</span>
+          <div class="v4-seg v4-seg--sm" role="group" aria-label="信息密度">
+            <button
+              type="button"
+              :class="{ 'is-on': themeStore.density === 'cozy' }"
+              :aria-pressed="themeStore.density === 'cozy'"
+              @click="themeStore.applyDensity('cozy')"
+            >
+              舒展
+            </button>
+            <button
+              type="button"
+              :class="{ 'is-on': themeStore.density === 'compact' }"
+              :aria-pressed="themeStore.density === 'compact'"
+              @click="themeStore.applyDensity('compact')"
+            >
+              紧凑
+            </button>
           </div>
-          <el-switch v-model="notifSettings.huanzhuComplete" />
         </div>
 
-        <hr class="settings-divider" />
+        <p class="v4-note">
+          玄墨为默认模式，为路演投影与三维素材提供最高对比度；宣纸适合长时间阅读文献。
+        </p>
+      </section>
 
-        <div class="pref-item">
-          <div class="pref-info">
-            <span class="pref-item-title">评论与互动通知</span>
-            <p class="pref-desc">有人评论或点赞您的帖子时，发送站内信通知</p>
+      <!-- ═══════════ ② 账号资料 · ACCOUNT ═══════════ -->
+      <section class="v4-card">
+        <div class="v4-cardhd">
+          <h3>账号资料</h3>
+          <span class="k">ACCOUNT</span>
+        </div>
+
+        <!-- 加载中 -->
+        <div v-if="profileLoading" class="sk-lines" aria-busy="true" aria-live="polite">
+          <span v-for="i in 4" :key="i" class="sk-line" :class="i % 2 ? 'sk-line--60' : 'sk-line--85'"></span>
+        </div>
+
+        <!-- 错误：说明 + 重试 -->
+        <div v-else-if="profileError" class="v4-empty card-state" role="alert">
+          <svg viewBox="0 0 40 40" aria-hidden="true">
+            <path d="M20 8L34 32H6L20 8Z" />
+            <path d="M20 17.5V24.5" />
+            <path d="M20 28.4H20.02" />
+          </svg>
+          <p>{{ profileError }}</p>
+          <button type="button" class="v4-btn v4-btn--outline v4-btn--sm" @click="loadProfile">
+            重试
+          </button>
+        </div>
+
+        <!-- 只读态 -->
+        <template v-else-if="!editing">
+          <div class="v4-kv">
+            <span class="k">昵称</span>
+            <span class="v">{{ profile.nickname || '未设置' }}</span>
           </div>
-          <el-switch v-model="notifSettings.interaction" />
-        </div>
-
-        <hr class="settings-divider" />
-
-        <div class="pref-item">
-          <div class="pref-info">
-            <span class="pref-item-title">审核结果通知</span>
-            <p class="pref-desc">您的帖子审核通过或被驳回时，发送站内信通知</p>
+          <div class="v4-kv">
+            <span class="k">用户名</span>
+            <span class="v v--mut">{{ profile.username || '—' }}</span>
           </div>
-          <el-switch v-model="notifSettings.auditResult" />
+          <div class="v4-kv">
+            <span class="k">角色</span>
+            <span class="v" :class="isAdmin ? 'v--gold' : 'v--jade'">{{ profile.role || 'USER' }}</span>
+          </div>
+          <div class="v4-kv">
+            <span class="k">注册时间</span>
+            <span class="v v--mut">{{ formatTime(profile.createdAt) }}</span>
+          </div>
+          <div class="v4-kv kv-bio">
+            <span class="k">文化签名</span>
+            <span class="v v--mut">{{ profile.bio || '还没有写文化签名' }}</span>
+          </div>
+          <button
+            type="button"
+            class="v4-btn v4-btn--ghost v4-btn--sm v4-btn--block edit-open"
+            @click="startEdit"
+          >
+            编辑资料
+          </button>
+        </template>
+
+        <!-- 编辑态：PUT /api/v1/users/me（真实接口，只提交昵称与文化签名） -->
+        <form v-else class="edit" @submit.prevent="saveProfile">
+          <label class="edit-field">
+            <span>昵称</span>
+            <el-input v-model="form.nickname" maxlength="64" placeholder="请输入昵称" />
+          </label>
+          <label class="edit-field">
+            <span>文化签名</span>
+            <el-input
+              v-model="form.bio"
+              type="textarea"
+              :rows="3"
+              maxlength="255"
+              show-word-limit
+              placeholder="一句话表达你的营造志趣"
+            />
+          </label>
+          <p v-if="saveError" class="edit-err" role="alert">{{ saveError }}</p>
+          <div class="edit-acts">
+            <button
+              type="submit"
+              class="v4-btn v4-btn--gold v4-btn--sm"
+              :disabled="saving || !canSave"
+            >
+              {{ saving ? '保存中…' : '保存' }}
+            </button>
+            <button
+              type="button"
+              class="v4-btn v4-btn--ghost v4-btn--sm"
+              :disabled="saving"
+              @click="cancelEdit"
+            >
+              取消
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- ═══════════ ③ 通知策略 · NOTIFY ═══════════ -->
+      <section class="v4-card">
+        <div class="v4-cardhd">
+          <h3>通知策略</h3>
+          <span class="k">NOTIFY</span>
         </div>
 
-        <p class="pref-hint">通知设置将在后续版本中接入后端，当前为界面预览。</p>
-      </div>
-    </section>
+        <div v-for="p in PREF_ITEMS" :key="p.key" class="v4-switch-row">
+          <span>
+            {{ p.label }}
+            <b>{{ p.hint }}</b>
+          </span>
+          <button
+            type="button"
+            class="v4-switch"
+            :class="{ 'is-on': prefs[p.key] }"
+            role="switch"
+            :aria-checked="prefs[p.key]"
+            :aria-label="p.label"
+            @click="togglePref(p.key)"
+          ></button>
+        </div>
 
-    <!-- 卡片二：关于平台 -->
-    <section class="settings-card">
-      <div class="card-section-header">
-        <el-icon class="section-icon"><InfoFilled /></el-icon>
-        <span>关于平台</span>
-      </div>
+        <p class="v4-note">
+          这些偏好保存在本机浏览器（localStorage），暂未同步到账号：后端目前没有通知偏好接口，
+          换设备或清理浏览器数据后会回到默认值。
+          「数字锦盒送达提醒」关闭后，幻筑完成不再弹窗，站内信仍会送达通知中心。
+        </p>
+      </section>
 
-      <div class="about-list">
-        <div class="about-item">
-          <el-icon class="about-icon"><Box /></el-icon>
-          <span class="about-label">平台名称</span>
-          <span class="about-value">智观·古建 — 数字孪生与文化传承</span>
+      <!-- ═══════════ ④ 关于平台 · ABOUT ═══════════ -->
+      <section class="v4-card">
+        <div class="v4-cardhd">
+          <h3>关于平台</h3>
+          <span class="k">ABOUT</span>
         </div>
-        <hr class="settings-divider" />
-        <div class="about-item">
-          <el-icon class="about-icon"><Clock /></el-icon>
-          <span class="about-label">版本号</span>
-          <span class="about-value">V1.3.0</span>
-        </div>
-        <hr class="settings-divider" />
-        <div class="about-item">
-          <el-icon class="about-icon"><Connection /></el-icon>
-          <span class="about-label">技术架构</span>
-          <span class="about-value">Vue 3 + Spring Boot 3.2 + VGGT + AI 3D</span>
-        </div>
-        <hr class="settings-divider" />
-        <div class="about-item">
-          <el-icon class="about-icon"><Stamp /></el-icon>
-          <span class="about-label">设计语言</span>
-          <span class="about-value">中国传统色彩体系 · 宣纸白 · 朱砂红 · 琉璃黄</span>
-        </div>
-      </div>
-    </section>
 
-    <!-- 提示卡片 -->
-    <section class="settings-card tip-card">
-      <el-icon class="tip-icon"><User /></el-icon>
-      <div class="tip-content">
-        <p class="tip-title">个人信息管理</p>
-        <p class="tip-desc">头像、昵称、签名、密码等个人信息请前往「个人中心」页面进行管理。</p>
-        <el-button type="primary" size="small" @click="$router.push('/profile')">
-          前往个人中心
-        </el-button>
-      </div>
-    </section>
+        <div class="v4-kv">
+          <span class="k">平台版本</span>
+          <span class="v">智观·古建 v{{ appVersion }}</span>
+        </div>
+        <div class="v4-kv">
+          <span class="k">前端技术栈</span>
+          <span class="v">Vue 3 · Vite 5 · Element Plus</span>
+        </div>
+        <div class="v4-kv">
+          <span class="k">解析引擎</span>
+          <span class="v v--jade">VGGT-Long v2</span>
+        </div>
+        <div class="v4-kv">
+          <span class="k">渲染管线</span>
+          <span class="v">WebGL · PBR · Draco</span>
+        </div>
+        <div class="v4-kv">
+          <span class="k">后端</span>
+          <span class="v">Spring Boot 3.2 · MySQL · Redis</span>
+        </div>
+
+        <p class="v4-note">
+          本项目为大学生创新创业训练计划（大创）作品。三维几何解析结果由 VGGT 自动生成，
+          文化解读为 AI 转译，非人工考据。
+        </p>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import {
-  BrushFilled, InfoFilled, Bell,
-  Sunny, Moon, Box, Clock, Connection, Stamp, User
-} from '@element-plus/icons-vue'
+import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import { ArrowLeft } from '@element-plus/icons-vue'
+import { authApi } from '@/api/auth'
 import { useThemeStore } from '@/stores/theme'
+import { useNotifyPrefs } from '@/composables/useNotifyPrefs'
+import { version as appVersion } from '../../package.json'
 
+const router = useRouter()
 const themeStore = useThemeStore()
 
-const notifSettings = ref({
-  huanzhuComplete: true,
-  interaction: true,
-  auditResult: true
-})
+/* ═══════════ 账号资料 ═══════════ */
+
+const profile = ref(null)
+const profileLoading = ref(true)
+const profileError = ref('')
+const editing = ref(false)
+const saving = ref(false)
+const saveError = ref('')
+const form = ref({ nickname: '', bio: '' })
+
+const isAdmin = computed(() => profile.value?.role === 'ADMIN')
+const canSave = computed(() => form.value.nickname.trim().length > 0)
+
+function toErrorState(e) {
+  const status = e?.response?.status
+  if (status === 401) return '登录状态已失效，请重新登录后查看账号资料。'
+  if (status === 403) return '当前账号没有权限查看这份资料。'
+  return e?.response?.data?.message || e?.message || '网络异常，请检查后端服务是否已启动。'
+}
+
+/** 后端 createdAt = LocalDateTime.toString()（2024-05-01T10:23:45），此处只做展示格式化 */
+function formatTime(raw) {
+  if (!raw) return '—'
+  return String(raw).replace('T', ' ').slice(0, 16)
+}
+
+async function loadProfile() {
+  profileLoading.value = true
+  profileError.value = ''
+  try {
+    const res = await authApi.getCurrentUser()
+    profile.value = res?.data || {}
+  } catch (e) {
+    profile.value = null
+    profileError.value = toErrorState(e)
+  } finally {
+    profileLoading.value = false
+  }
+}
+
+function startEdit() {
+  form.value = {
+    nickname: profile.value?.nickname || '',
+    bio: profile.value?.bio || ''
+  }
+  saveError.value = ''
+  editing.value = true
+}
+
+function cancelEdit() {
+  editing.value = false
+  saveError.value = ''
+}
+
+async function saveProfile() {
+  if (saving.value || !canSave.value) return
+  saving.value = true
+  saveError.value = ''
+  try {
+    // 真实接口：PUT /api/v1/users/me，只提交改动字段（avatarUrl 不在此处编辑）
+    await authApi.updateProfile({
+      nickname: form.value.nickname.trim(),
+      bio: form.value.bio.trim()
+    })
+    editing.value = false
+    await loadProfile() // 保存后以服务端为准刷新
+    ElMessage.success('资料已更新')
+  } catch (e) {
+    saveError.value = e?.response?.data?.message || e?.message || '保存失败，请稍后重试'
+  } finally {
+    saving.value = false
+  }
+}
+
+/* ═══════════ 通知策略（本机偏好）═══════════
+   读写逻辑收敛到 composable：BrocadeDialog 要读同一份偏好，
+   若此处再持一份 localStorage 逻辑就会有两个 owner 各写同一个 key。 */
+
+const { prefs, items: PREF_ITEMS, toggle: togglePref } = useNotifyPrefs()
+
+/* ═══════════ 通用 ═══════════ */
+
+function goBack() {
+  if (window.history.state?.back) router.back()
+  else router.push('/home')
+}
+
+onMounted(loadProfile)
 </script>
 
 <style scoped>
-.settings-page {
-  max-width: 720px;
-  margin: 0 auto;
-  padding: var(--spacing-xl) var(--spacing-lg);
+/* ═══ 卡片内键值行：给紧凑的 .v4-kv 补一点行距 ═══ */
+.v4-card > .v4-kv {
+  padding: 5px 0;
 }
 
-/* ===== 页面标题 ===== */
-.page-title-bar {
-  text-align: center;
-  padding-bottom: var(--spacing-lg);
+/* 文化签名可能较长：顶部对齐、右侧换行，390px 下不横向溢出 */
+.v4-card > .v4-kv.kv-bio {
+  align-items: flex-start;
 }
 
-.page-title {
-  font-family: var(--font-family-serif);
-  font-size: 26px;
-  font-weight: 600;
-  color: var(--color-text-main);
-  letter-spacing: 3px;
-  margin-bottom: var(--spacing-xs);
+.v4-card > .v4-kv.kv-bio > .v {
+  text-align: right;
+  max-width: 62%;
+  overflow-wrap: anywhere;
 }
 
-.page-subtitle {
-  font-size: 14px;
-  color: var(--color-text-muted);
-  letter-spacing: 1px;
-}
-
-/* ===== 卡片 ===== */
-.settings-card {
-  background: var(--color-surface);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: var(--radius-lg);
-  padding: var(--spacing-lg);
-  margin-bottom: var(--spacing-lg);
-  box-shadow: var(--shadow-card);
-  border: 1px solid var(--color-border-light);
-}
-
-[data-theme="dark"] .settings-card {
-  border: 1px solid var(--color-border);
-  box-shadow: none;
-}
-
-/* 卡片分区标题 */
-.card-section-header {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-family: var(--font-family-serif);
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-text-main);
-  padding-bottom: var(--spacing-md);
-  margin-bottom: var(--spacing-sm);
-  border-bottom: 1px solid var(--color-border);
-  letter-spacing: 1px;
-}
-
-.section-icon {
-  font-size: 20px;
-  color: var(--color-primary);
-}
-
-/* ===== 设置分组 ===== */
-.setting-group {
-  padding: var(--spacing-sm) 0;
-}
-
-.group-label {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-main);
-  margin-bottom: var(--spacing-md);
-  margin-top: var(--spacing-xs);
-}
-
-.label-icon {
-  font-size: 16px;
-  color: var(--color-primary);
-}
-
-/* ===== 偏好设置项 ===== */
-.pref-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-md) 0;
-}
-
-.pref-info {
-  flex: 1;
-  margin-right: var(--spacing-lg);
-}
-
-.pref-title {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  font-family: var(--font-family-serif);
-  font-size: 17px;
-  font-weight: 500;
-  color: var(--color-text-main);
-  margin-bottom: var(--spacing-xs);
-}
-
-.pref-title-icon {
-  font-size: 18px;
-  color: var(--color-accent);
-  transition: color var(--transition-theme);
-}
-
-.pref-title-icon.is-dark {
-  color: var(--color-accent-light);
-}
-
-.pref-item-title {
-  font-size: 15px;
-  font-weight: 500;
-  color: var(--color-text-main);
-}
-
-.pref-desc {
-  font-size: 13px;
-  color: var(--color-text-muted);
-  line-height: 1.5;
-}
-
-.pref-hint {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  font-style: italic;
+.edit-open {
   margin-top: var(--spacing-md);
-  padding-top: var(--spacing-sm);
-  border-top: 1px dashed var(--color-border);
 }
 
-/* ===== 关于平台 ===== */
-.about-list {
-  padding: var(--spacing-xs) 0;
-}
-
-.about-item {
+/* ═══ 编辑态表单 ═══ */
+.edit-field {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md) 0;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
 }
 
-.about-icon {
-  font-size: 18px;
-  color: var(--color-primary);
-  flex-shrink: 0;
+.edit-field > span {
+  font-size: 11px;
+  color: var(--color-text-muted);
 }
 
-.about-label {
-  font-size: 14px;
-  color: var(--color-text-sub);
-  flex-shrink: 0;
-  min-width: 72px;
+.edit-err {
+  font-size: 11px;
+  color: var(--color-rose-text);
+  margin-bottom: 10px;
 }
 
-.about-value {
-  font-size: 14px;
-  color: var(--color-text-main);
-  font-weight: 500;
-}
-
-/* ===== 提示卡片 ===== */
-.tip-card {
+.edit-acts {
   display: flex;
-  align-items: center;
-  gap: var(--spacing-lg);
-  background: var(--color-accent-soft);
-  border-color: var(--color-accent);
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
-.tip-icon {
-  font-size: 32px;
-  color: var(--color-accent);
-  flex-shrink: 0;
+/* ═══ 卡片内状态块（加载 / 错误）═══ */
+.card-state {
+  padding: 28px 16px;
 }
 
-.tip-content {
-  flex: 1;
+.card-state > .v4-btn {
+  margin-top: var(--spacing-md);
 }
 
-.tip-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-main);
-  margin-bottom: 4px;
+.sk-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
 }
 
-.tip-desc {
-  font-size: 13px;
-  color: var(--color-text-sub);
-  margin-bottom: var(--spacing-sm);
+.sk-line {
+  height: 10px;
+  border-radius: var(--radius-xs);
+  background: var(--color-bg-subtle);
+  animation: sk-pulse 1.4s ease-in-out infinite;
 }
 
-/* ===== 响应式 ===== */
-@media (max-width: 768px) {
-  .settings-page {
-    padding: var(--spacing-md);
-  }
+.sk-line--60 { width: 60%; }
+.sk-line--85 { width: 85%; }
 
-  .page-title {
-    font-size: 22px;
-  }
-
-  .settings-card {
-    padding: var(--spacing-md);
-  }
-
-  .about-item {
-    flex-wrap: wrap;
-    gap: var(--spacing-sm);
-  }
-
-  .tip-card {
-    flex-direction: column;
-    text-align: center;
-  }
+@keyframes sk-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
 </style>
