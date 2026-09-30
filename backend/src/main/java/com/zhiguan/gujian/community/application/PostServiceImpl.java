@@ -66,13 +66,13 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public Page<PostBriefResponse> getPostFeed(int page, int size) {
+    public Page<PostBriefResponse> getPostFeed(int page, int size, Long viewerId) {
         Page<Post> postPage = new Page<>(page, size);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
                 .eq(Post::getStatus, STATUS_APPROVED)
                 .orderByDesc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
-        return postBriefAssembler.buildPostBriefPage(result);
+        return postBriefAssembler.buildPostBriefPage(result, viewerId);
     }
 
     @Override
@@ -136,6 +136,10 @@ public class PostServiceImpl implements PostService {
                 .tags(post.getTags())
                 .comments(comments)
                 .createdAt(post.getCreatedAt() != null ? post.getCreatedAt().format(FMT) : "")
+                // 状态与驳回原因：详情只对「已发布」或「作者/管理员」可见，
+                // 因此把这两项返回给调用方是安全的，且作者终于能看到自己被驳回的原因
+                .status(post.getStatus())
+                .rejectReason(post.getRejectReason())
                 .build();
     }
 
@@ -193,22 +197,22 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public Page<PostBriefResponse> getPendingPosts(int page, int size) {
+    public Page<PostBriefResponse> getPendingPosts(int page, int size, Long viewerId) {
         Page<Post> postPage = new Page<>(page, size);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
                 .eq(Post::getStatus, STATUS_PENDING)
                 .orderByAsc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
-        return postBriefAssembler.buildPostBriefPage(result);
+        return postBriefAssembler.buildPostBriefPage(result, viewerId);
     }
 
     @Override
-    public Page<PostBriefResponse> getUserPosts(Long userId, int page, int size) {
+    public Page<PostBriefResponse> getUserPosts(Long userId, int page, int size, Long viewerId) {
         Page<Post> postPage = new Page<>(page, size);
         LambdaQueryWrapper<Post> wrapper = new LambdaQueryWrapper<Post>()
                 .eq(Post::getUserId, userId)
                 .orderByDesc(Post::getCreatedAt);
         Page<Post> result = postMapper.selectPage(postPage, wrapper);
-        return postBriefAssembler.buildPostBriefPage(result);
+        return postBriefAssembler.buildPostBriefPage(result, viewerId);
     }
 }

@@ -17,8 +17,10 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -74,8 +76,12 @@ public class LikeServiceImpl implements LikeService {
         Map<Long, Integer> likeCountMap = postBriefAssembler.batchCountLikes(posts);
         Map<Long, Integer> commentCountMap = postBriefAssembler.batchCountComments(posts);
 
+        // 「我的收藏」里的帖子按定义都是当前用户点过赞的
+        Set<Long> likedIds = new HashSet<>(pageIds);
+
         List<PostBriefResponse> records = posts.stream()
-                .map(p -> postBriefAssembler.toBriefResponse(p, userMap, assetMap, likeCountMap, commentCountMap))
+                .map(p -> postBriefAssembler.toBriefResponse(
+                        p, userMap, assetMap, likeCountMap, commentCountMap, likedIds))
                 .collect(Collectors.toList());
         responsePage.setRecords(records);
         return responsePage;

@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.zhiguan.gujian.auth.domain.User;
 import com.zhiguan.gujian.auth.infrastructure.UserMapper;
+import com.zhiguan.gujian.community.domain.LikeRecord;
 import com.zhiguan.gujian.community.domain.Post;
 import com.zhiguan.gujian.community.infrastructure.CommentMapper;
 import com.zhiguan.gujian.community.infrastructure.FollowRecordMapper;
@@ -23,6 +24,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -100,7 +102,7 @@ class PostServiceTest {
         when(likeRecordMapper.selectList(any())).thenReturn(Arrays.asList());
         when(commentMapper.selectList(any())).thenReturn(Arrays.asList());
 
-        Page<PostBriefResponse> result = postService.getPostFeed(1, 12);
+        Page<PostBriefResponse> result = postService.getPostFeed(1, 12, 1L);
 
         assertNotNull(result);
         assertEquals(1, result.getRecords().size());
@@ -382,5 +384,116 @@ class PostServiceTest {
         postService.auditPost(10L, "REJECTED", "  含营销话术  ");
 
         verify(postMapper).updateById(argThat(post -> "含营销话术".equals(post.getRejectReason())));
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       契约补全 —— 帖子流新增 likedByMe / modelAssetId / rejectReason
+       likedByMe 原先缺失，导致前端信息流点赞态恒为 false，
+       用户再点一次「赞赏」时乐观更新与后端 toggle 语义相反（点赞态反转）。
+       ═══════════════════════════════════════════════════════════════ */
+
+    private void stubFeed(List<Post> posts, List<LikeRecord> myLikes) {
+        Page<Post> mockPage = new Page<>(1, 12);
+        mockPage.setRecords(posts);
+        mockPage.setTotal(posts.size());
+        when(postMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(mockPage);
+        when(userMapper.selectBatchIds(any())).thenReturn(Arrays.asList(testUser));
+        when(likeRecordMapper.selectList(any())).thenReturn(myLikes);
+        when(commentMapper.selectList(any())).thenReturn(Arrays.asList());
+    }
+
+    private static LikeRecord likeOf(Long userId, Long targetId) {
+        LikeRecord r = new LikeRecord();
+        r.setUserId(userId);
+        r.setTargetId(targetId);
+        r.setTargetType("POST");
+        return r;
+    }
+
+    @Test
+    @DisplayName("帖子流 - 已登录时返回 likedByMe=true（信息流点赞态的依据）")
+    void getPostFeed_loggedInUser_marksLikedByMe() {
+        stubFeed(Arrays.asList(testPost), Arrays.asList(likeOf(1L, 1L)));
+
+        Page<PostBriefResponse> result = postService.getPostFeed(1, 12, 1L);
+
+        assertTrue(result.getRecords().get(0).isLikedByMe(), "当前用户已点赞，likedByMe 应为 true");
+    }
+
+    @Test
+    @DisplayName("帖子流 - 当前用户未点赞时 likedByMe=false")
+    void getPostFeed_notLiked_likedByMeFalse() {
+        stubFeed(Arrays.asList(testPost), Arrays.asList());
+
+        assertFalse(postService.getPostFeed(1, 12, 1L).getRecords().get(0).isLikedByMe());
+    }
+
+    @Test
+    @DisplayName("帖子流 - 匿名访问时 likedByMe=false，且不为点赞查询打数据库")
+    void getPostFeed_anonymous_likedByMeFalse() {
+        stubFeed(Arrays.asList(testPost), Arrays.asList());
+
+        assertFalse(postService.getPostFeed(1, 12, null).getRecords().get(0).isLikedByMe());
+    }
+
+    @Test
+    @DisplayName("帖子流 - 已登录时额外执行一次「我点过赞的帖子」查询")
+    void getPostFeed_loggedIn_addsViewerLikeLookup() {
+        stubFeed(Arrays.asList(testPost), Arrays.asList());
+
+        postService.getPostFeed(1, 12, 7L);
+
+        // 一次统计点赞数（按 target_id）+ 一次查"我点过赞的帖子"（按 user_id）。
+        // 说明：这里只断言"多打了一次查询"——SQL 里是否真的按 user_id 过滤，
+        // 纯单测拿不到（MyBatis-Plus 的 lambda 缓存需要 MP 上下文），
+        // 因此由真实数据库的 E2E 断言（见 .workbuddy/_e2e_docker.mjs 的点赞态一节）。
+        verify(likeRecordMapper, times(2)).selectList(any());
+    }
+
+    @Test
+    @DisplayName("帖子流 - 匿名访问时不查询点赞表（viewerId 为 null 直接短路）")
+    void getPostFeed_anonymous_skipsLikeLookup() {
+        stubFeed(Arrays.asList(testPost), Arrays.asList());
+
+        postService.getPostFeed(1, 12, null);
+
+        // 仅剩统计点赞数那一次查询，不应多出"查我点过赞的帖子"这一次
+        verify(likeRecordMapper, times(1)).selectList(any());
+    }
+
+    @Test
+    @DisplayName("帖子流 - 返回 modelAssetId，供前端区分「实景解析 / AI 幻筑」")
+    void getPostFeed_returnsModelAssetId() {
+        testPost.setModelAssetId(77L);
+        stubFeed(Arrays.asList(testPost), Arrays.asList());
+
+        assertEquals(77L, postService.getPostFeed(1, 12, 1L).getRecords().get(0).getModelAssetId());
+    }
+
+    @Test
+    @DisplayName("我的档案 - 返回 status 与 rejectReason，作者能看到被驳回的原因")
+    void getUserPosts_returnsStatusAndRejectReason() {
+        Post rejected = postWithStatus("REJECTED", 1L);
+        rejected.setRejectReason("标题含营销话术");
+        stubFeed(Arrays.asList(rejected), Arrays.asList());
+
+        PostBriefResponse row = postService.getUserPosts(1L, 1, 12, 1L).getRecords().get(0);
+
+        assertEquals("REJECTED", row.getStatus());
+        assertEquals("标题含营销话术", row.getRejectReason());
+    }
+
+    @Test
+    @DisplayName("详情 - 返回 status 与 rejectReason")
+    void getPostDetail_returnsStatusAndRejectReason() {
+        Post rejected = postWithStatus("REJECTED", 1L);
+        rejected.setRejectReason("影像含水印");
+        when(postMapper.selectById(10L)).thenReturn(rejected);
+        stubDetailDependencies();
+
+        PostDetailResponse res = postService.getPostDetail(10L, 1L, false);
+
+        assertEquals("REJECTED", res.getStatus());
+        assertEquals("影像含水印", res.getRejectReason());
     }
 }

@@ -223,6 +223,84 @@ for (let i = 0; i < 5; i++) {
 check('超额调用触发限流（429 + 温润文案）', !!limited,
   limited ? `HTTP ${limited.status}「${(limited.body?.message || '').slice(0, 60)}…」` : '5 次内未触发')
 
+/* ─────────── 9. 帖子流契约：likedByMe / modelAssetId / rejectReason ─────────── */
+console.log('\n── 9. 帖子流契约（likedByMe 是信息流点赞态的唯一依据）──')
+
+const uA = { username: `likeA_${stamp}`, password: 'e2e_pass_123', nickname: `点赞A${stamp}` }
+const uB = { username: `likeB_${stamp}`, password: 'e2e_pass_123', nickname: `点赞B${stamp}` }
+for (const u of [uA, uB]) {
+  await req('POST', '/api/v1/auth/register', { json: u })
+}
+const tokenA = (await req('POST', '/api/v1/auth/login', { json: { username: uA.username, password: uA.password } })).body?.data?.token
+const tokenB = (await req('POST', '/api/v1/auth/login', { json: { username: uB.username, password: uB.password } })).body?.data?.token
+check('两个独立测试用户登录成功', !!tokenA && !!tokenB, '')
+
+const likeTitle = `点赞态验证 ${stamp}`
+await req('POST', '/api/v1/posts', {
+  token: adminToken, json: { title: likeTitle, content: '契约验证用', tags: '验证' }
+})
+const feedAll = await req('GET', '/api/v1/posts?page=1&size=50')
+const target = (feedAll.body?.data?.records || []).find(p => p.title === likeTitle)
+check('新帖出现在公开流（管理员发帖直接 APPROVED）', !!target, `postId=${target?.postId}`)
+
+const fields = Object.keys(target || {}).sort()
+check('帖子流响应含 likedByMe（原先缺失 → 信息流点赞态恒为 false）',
+  fields.includes('likedByMe'), `实际字段: ${fields.join(', ')}`)
+check('帖子流响应含 modelAssetId（用于区分实景解析 / AI 幻筑）',
+  fields.includes('modelAssetId'), '')
+check('帖子流响应含 rejectReason（作者可见驳回原因）',
+  fields.includes('rejectReason'), '')
+
+if (target) {
+  // A 点赞
+  await req('POST', '/api/v1/interactions/like', {
+    token: tokenA, json: { targetId: target.postId, targetType: 'POST' }
+  })
+
+  const feedA = await req('GET', '/api/v1/posts?page=1&size=50', { token: tokenA })
+  const rowA = (feedA.body?.data?.records || []).find(p => p.postId === target.postId)
+  check('已点赞的用户 A 看到 likedByMe=true', rowA?.likedByMe === true, `likedByMe=${rowA?.likedByMe}`)
+
+  const feedB = await req('GET', '/api/v1/posts?page=1&size=50', { token: tokenB })
+  const rowB = (feedB.body?.data?.records || []).find(p => p.postId === target.postId)
+  check('未点赞的用户 B 看到 likedByMe=false（不把别人的点赞算到我头上）',
+    rowB?.likedByMe === false, `likedByMe=${rowB?.likedByMe}`)
+
+  const feedAnon = await req('GET', '/api/v1/posts?page=1&size=50')
+  const rowAnon = (feedAnon.body?.data?.records || []).find(p => p.postId === target.postId)
+  check('匿名访问 likedByMe=false', rowAnon?.likedByMe === false, `likedByMe=${rowAnon?.likedByMe}`)
+
+  check('两个用户看到的 likeCount 一致（计数不受调用方影响）',
+    rowA?.likeCount === rowB?.likeCount && rowA?.likeCount === 1,
+    `A=${rowA?.likeCount} B=${rowB?.likeCount}`)
+
+  // 我的档案里应能看到真实 status 与 rejectReason —— 先让 A 发一条（普通用户 → PENDING）
+  await req('POST', '/api/v1/posts', {
+    token: tokenA, json: { title: `A的待审档案 ${stamp}`, content: '待审内容', tags: '草稿' }
+  })
+  const mine = await req('GET', '/api/v1/users/me/posts?page=1&size=50', { token: tokenA })
+  const mineRow = (mine.body?.data?.records || [])[0]
+  check('「我的档案」返回 status 与 rejectReason 字段',
+    mineRow && 'status' in mineRow && 'rejectReason' in mineRow,
+    `status=${mineRow?.status} rejectReason=${mineRow?.rejectReason}`)
+  check('「我的档案」能看到自己的待审帖（作者视角）',
+    mineRow?.status === 'PENDING', `status=${mineRow?.status}`)
+
+  // 作者能读到自己的待审帖详情；他人不能（可见性回归）
+  const ownDetail = await req('GET', `/api/v1/posts/${mineRow?.postId}`, { token: tokenA })
+  check('作者可读自己的待审帖详情', ownDetail.status === 200 && ownDetail.body?.data?.status === 'PENDING',
+    `HTTP ${ownDetail.status} status=${ownDetail.body?.data?.status}`)
+  const otherDetail = await req('GET', `/api/v1/posts/${mineRow?.postId}`, { token: tokenB })
+  check('他人读该待审帖 → 404（不泄露存在性）', otherDetail.status === 404, `HTTP ${otherDetail.status}`)
+  const anonDetail = await req('GET', `/api/v1/posts/${mineRow?.postId}`)
+  check('匿名读该待审帖 → 404', anonDetail.status === 404, `HTTP ${anonDetail.status}`)
+
+  // 收尾：取消点赞，避免污染后续运行
+  await req('POST', '/api/v1/interactions/like', {
+    token: tokenA, json: { targetId: target.postId, targetType: 'POST' }
+  })
+}
+
 /* ─────────── 汇总 ─────────── */
 console.log(`\n── 汇总 ──  通过 ${pass} / 失败 ${fail} / 共 ${pass + fail}`)
 const failed = results.filter(r => !r.ok)

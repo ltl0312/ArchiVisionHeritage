@@ -44,16 +44,17 @@ final class PostBriefAssembler {
         this.commentMapper = commentMapper;
     }
 
-    public Page<PostBriefResponse> buildPostBriefPage(Page<Post> postPage) {
+    public Page<PostBriefResponse> buildPostBriefPage(Page<Post> postPage, Long viewerId) {
         List<Post> posts = postPage.getRecords();
 
         Map<Long, User> userMap = batchLoadUsers(posts);
         Map<Long, ModelAsset> assetMap = batchLoadModelAssets(posts);
         Map<Long, Integer> likeCountMap = batchCountLikes(posts);
         Map<Long, Integer> commentCountMap = batchCountComments(posts);
+        Set<Long> likedPostIds = batchLoadLikedPostIds(posts, viewerId);
 
         List<PostBriefResponse> records = posts.stream()
-                .map(p -> toBriefResponse(p, userMap, assetMap, likeCountMap, commentCountMap))
+                .map(p -> toBriefResponse(p, userMap, assetMap, likeCountMap, commentCountMap, likedPostIds))
                 .collect(Collectors.toList());
 
         Page<PostBriefResponse> responsePage = new Page<>(postPage.getCurrent(), postPage.getSize(), postPage.getTotal());
@@ -110,10 +111,30 @@ final class PostBriefAssembler {
         return map;
     }
 
+    /**
+     * 批量查询「当前调用方已点赞的帖子 id」。
+     *
+     * 单条 SQL 取回该用户在**本页帖子**范围内的点赞记录，避免逐条查询（N+1）。
+     * viewerId 为 null（匿名）时直接返回空集合，不做查询。
+     */
+    public Set<Long> batchLoadLikedPostIds(List<Post> posts, Long viewerId) {
+        if (viewerId == null || posts.isEmpty()) {
+            return Set.of();
+        }
+        List<Long> postIds = posts.stream().map(Post::getId).collect(Collectors.toList());
+        List<LikeRecord> likes = likeRecordMapper.selectList(
+                new LambdaQueryWrapper<LikeRecord>()
+                        .eq(LikeRecord::getUserId, viewerId)
+                        .eq(LikeRecord::getTargetType, "POST")
+                        .in(LikeRecord::getTargetId, postIds));
+        return likes.stream().map(LikeRecord::getTargetId).collect(Collectors.toSet());
+    }
+
     public PostBriefResponse toBriefResponse(Post post, Map<Long, User> userMap,
                                              Map<Long, ModelAsset> assetMap,
                                              Map<Long, Integer> likeCountMap,
-                                             Map<Long, Integer> commentCountMap) {
+                                             Map<Long, Integer> commentCountMap,
+                                             Set<Long> likedPostIds) {
         User author = userMap.get(post.getUserId());
         String preview2dPath = post.getCoverImageUrl();
         if (preview2dPath == null && post.getModelAssetId() != null) {
@@ -132,6 +153,9 @@ final class PostBriefAssembler {
                 .status(post.getStatus())
                 .tags(post.getTags())
                 .createdAt(post.getCreatedAt() != null ? post.getCreatedAt().format(FMT) : "")
+                .modelAssetId(post.getModelAssetId())
+                .rejectReason(post.getRejectReason())
+                .likedByMe(likedPostIds != null && likedPostIds.contains(post.getId()))
                 .build();
     }
 }

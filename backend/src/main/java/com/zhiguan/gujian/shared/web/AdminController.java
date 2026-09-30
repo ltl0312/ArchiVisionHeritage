@@ -6,8 +6,10 @@ import com.zhiguan.gujian.community.interfaces.PostBriefResponse;
 import com.zhiguan.gujian.shared.common.CulturalApiException;
 // 注：shared/web → community BC 的临时跨 BC 依赖（文档 §5.6 明示，后续演进再细化拆分）
 import com.zhiguan.gujian.community.application.PostService;
+import com.zhiguan.gujian.shared.security.CallerIdentity;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -31,8 +33,9 @@ public class AdminController {
     @GetMapping("/posts/pending")
     public Result<Page<PostBriefResponse>> getPendingPosts(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return Result.ok(postService.getPendingPosts(page, size));
+            @RequestParam(defaultValue = "20") int size,
+            Authentication auth) {
+        return Result.ok(postService.getPendingPosts(page, size, CallerIdentity.userId(auth)));
     }
 
     /**

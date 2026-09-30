@@ -7,8 +7,12 @@ import com.zhiguan.gujian.community.interfaces.PostDetailResponse;
 
 public interface PostService {
 
-    /** 获取帖子流 — 仅展示 APPROVED 状态的帖子 */
-    Page<PostBriefResponse> getPostFeed(int page, int size);
+    /**
+     * 获取帖子流 — 仅展示 APPROVED 状态的帖子。
+     *
+     * @param viewerId 调用方 userId（匿名传 null）—— 用于计算每条帖子的 {@code likedByMe}
+     */
+    Page<PostBriefResponse> getPostFeed(int page, int size, Long viewerId);
 
     /**
      * 获取帖子详情。
@@ -31,8 +35,12 @@ public interface PostService {
     void auditPost(Long postId, String status, String rejectReason);
 
     /** 管理员获取待审核帖子列表 (status = PENDING) */
-    Page<PostBriefResponse> getPendingPosts(int page, int size);
+    Page<PostBriefResponse> getPendingPosts(int page, int size, Long viewerId);
 
-    /** 获取用户发布的所有帖子 */
-    Page<PostBriefResponse> getUserPosts(Long userId, int page, int size);
+    /**
+     * 获取用户发布的所有帖子（**含 PENDING / REJECTED**，供「我的档案」展示审核状态）。
+     *
+     * @param viewerId 调用方 userId —— 用于计算 likedByMe
+     */
+    Page<PostBriefResponse> getUserPosts(Long userId, int page, int size, Long viewerId);
 }

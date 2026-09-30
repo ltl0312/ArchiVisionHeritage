@@ -35,12 +35,16 @@ public class CommunityController {
 
     // ======================== 社区帖子流 ========================
 
-    /** 获取帖子流（仅展示 APPROVED 帖子） */
+    /**
+     * 获取帖子流（仅展示 APPROVED 帖子）。
+     * 匿名也可访问；已登录时附带 likedByMe，供前端正确渲染点赞态。
+     */
     @GetMapping("/api/v1/posts")
     public Result<Page<PostBriefResponse>> getPosts(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "12") int size) {
-        return Result.ok(postService.getPostFeed(page, size));
+            @RequestParam(defaultValue = "12") int size,
+            Authentication auth) {
+        return Result.ok(postService.getPostFeed(page, size, CallerIdentity.userId(auth)));
     }
 
     /**
@@ -86,13 +90,14 @@ public class CommunityController {
     // ======================== 个人中心帖子查询 ========================
     // 注：个人资料/密码接口已迁至 auth BC 的 ProfileController（URL 契约不变）
 
-    /** 获取当前用户发布的帖子 */
+    /** 获取当前用户发布的帖子（含待审/已驳回，供「我的档案」展示审核状态与驳回原因） */
     @GetMapping("/api/v1/users/me/posts")
     public Result<Page<PostBriefResponse>> getMyPosts(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "12") int size,
             Authentication auth) {
-        return Result.ok(postService.getUserPosts(CallerIdentity.requireUserId(auth), page, size));
+        Long userId = CallerIdentity.requireUserId(auth);
+        return Result.ok(postService.getUserPosts(userId, page, size, userId));
     }
 
     /** 获取当前用户点赞过的帖子 */
