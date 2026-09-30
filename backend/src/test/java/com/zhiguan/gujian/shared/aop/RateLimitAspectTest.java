@@ -48,8 +48,15 @@ class RateLimitAspectTest {
     @Mock
     private ProceedingJoinPoint joinPoint;
 
-    @RateLimit(maxCalls = 5)
+    @RateLimit(maxCalls = 5, key = "zhixi")
     public void annotatedEndpoint() {
+        // 仅用于反射获取 @RateLimit 注解实例
+    }
+
+    /** 另一个接口的限流配置 —— 用于验证不同 key 不共用计数器，以及自定义文案生效 */
+    @RateLimit(maxCalls = 20, key = "login",
+            message = "登录尝试次数过多，为保护账号安全已触发每日限额。请明日再试，或联系管理员。")
+    public void anotherEndpoint() {
         // 仅用于反射获取 @RateLimit 注解实例
     }
 
@@ -68,8 +75,7 @@ class RateLimitAspectTest {
     }
 
     private RateLimit rateLimitAnnotation() throws Exception {
-        return getClass().getMethod("annotatedEndpoint").getAnnotation(RateLimit.class);
-    }
+        return getClass().getMethod("annotatedEndpoint").getAnnotation(RateLimit.class);    }
 
     @Test
     @DisplayName("计数未超限(脚本返回1) - 放行并执行目标方法")
@@ -141,5 +147,44 @@ class RateLimitAspectTest {
         verify(redisTemplate).execute(eq(rateLimitScript), keysCaptor.capture(), any(Object[].class));
 
         assertEquals(List.of("rate:zhixi:uid:1:" + LocalDate.now()), keysCaptor.getValue());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    @DisplayName("不同接口的 key 互不干扰（原实现把前缀硬编码成 rate:zhixi，加注解就会共用计数器）")
+    void differentKeys_doNotShareCounter() throws Throwable {
+        when(redisTemplate.execute(eq(rateLimitScript), anyList(), any(Object[].class))).thenReturn(1L);
+        when(joinPoint.proceed()).thenReturn("ok");
+
+        // 接口 A（key=zhixi）
+        rateLimitAspect.checkRateLimit(joinPoint, rateLimitAnnotation());
+        // 接口 B（key=login）
+        RateLimit loginLimit = getClass().getMethod("anotherEndpoint").getAnnotation(RateLimit.class);
+        rateLimitAspect.checkRateLimit(joinPoint, loginLimit);
+
+        ArgumentCaptor<List<String>> keysCaptor = ArgumentCaptor.forClass(List.class);
+        verify(redisTemplate, times(2)).execute(eq(rateLimitScript), keysCaptor.capture(), any(Object[].class));
+
+        List<String> keys = keysCaptor.getAllValues().stream()
+                .map(list -> list.get(0))
+                .collect(java.util.stream.Collectors.toList());
+
+        assertTrue(keys.get(0).startsWith("rate:zhixi:"), "接口 A 的 key 前缀，实际: " + keys.get(0));
+        assertTrue(keys.get(1).startsWith("rate:login:"), "接口 B 的 key 前缀，实际: " + keys.get(1));
+        assertNotEquals(keys.get(0), keys.get(1), "两个接口不得共用同一个计数器 key");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    @DisplayName("自定义文案：注解带 message 时用它，不再套用古建文案")
+    void customMessage_isUsedWhenProvided() throws Throwable {
+        when(redisTemplate.execute(eq(rateLimitScript), anyList(), any(Object[].class))).thenReturn(0L);
+        RateLimit loginLimit = getClass().getMethod("anotherEndpoint").getAnnotation(RateLimit.class);
+
+        CulturalApiException ex = assertThrows(CulturalApiException.class,
+                () -> rateLimitAspect.checkRateLimit(joinPoint, loginLimit));
+
+        assertEquals(429, ex.getCode());
+        assertTrue(ex.getMessage().contains("登录尝试次数过多"), "实际: " + ex.getMessage());
     }
 }

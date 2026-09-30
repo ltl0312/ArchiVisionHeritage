@@ -4,6 +4,7 @@ import com.zhiguan.gujian.shared.common.Result;
 import com.zhiguan.gujian.task.domain.TaskStatus;
 import com.zhiguan.gujian.task.interfaces.HuanZhuRequest;
 import com.zhiguan.gujian.shared.common.CulturalApiException;
+import com.zhiguan.gujian.shared.security.CallerIdentity;
 import com.zhiguan.gujian.task.interfaces.TaskStatusResponse;
 import com.zhiguan.gujian.task.application.TaskOrchestrationService;
 import jakarta.validation.Valid;
@@ -44,10 +45,15 @@ public class HuanZhuController {
         return Result.ok(data);
     }
 
-    /** 轮询任务状态 */
+    /**
+     * 轮询任务状态。
+     * 必须携带身份：服务层会校验任务归属（非管理员只能查自己的任务），
+     * 否则任何登录用户枚举 id 即可读取他人任务的资产路径（IDOR）。
+     */
     @GetMapping("/{id}/status")
-    public Result<TaskStatusResponse> getTaskStatus(@PathVariable Long id) {
-        TaskStatusResponse status = taskOrchestrationService.getTaskStatus(id);
+    public Result<TaskStatusResponse> getTaskStatus(@PathVariable Long id, Authentication auth) {
+        TaskStatusResponse status = taskOrchestrationService.getTaskStatus(
+                id, CallerIdentity.userId(auth), CallerIdentity.isAdmin(auth));
         if (status == null) {
             throw new CulturalApiException(404, "任务不存在");
         }

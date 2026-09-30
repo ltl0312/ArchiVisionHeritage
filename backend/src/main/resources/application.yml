@@ -8,6 +8,14 @@ server:
     accept-count: 200    # 连接队列溢出缓冲
 
 spring:
+  # profile 分组：激活 docker 时同时激活 prod 的日志治理。
+  # 原先 docker 部署只激活 docker profile，于是 application-prod.yml 里的
+  # 「关闭 MyBatis SQL 逐行输出 + 日志级别 info」完全不生效 ——
+  # 容器里以 debug 级别打印每一条 SQL 及其参数（含密码哈希），既拖性能又泄信息。
+  profiles:
+    group:
+      docker: prod
+
   datasource:
     url: jdbc:mysql://localhost:3306/zhiguan_gujian
     username: root

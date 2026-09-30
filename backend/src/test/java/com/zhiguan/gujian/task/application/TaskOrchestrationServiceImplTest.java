@@ -93,11 +93,11 @@ class TaskOrchestrationServiceImplTest {
     }
 
     @Test
-    @DisplayName("获取任务状态 - 任务存在")
+    @DisplayName("获取任务状态 - 任务存在（本人查询）")
     void getTaskStatus_taskExists() {
         when(aiTaskMapper.selectById(1L)).thenReturn(testTask);
 
-        TaskStatusResponse response = taskService.getTaskStatus(1L);
+        TaskStatusResponse response = taskService.getTaskStatus(1L, 1L, false);
 
         assertNotNull(response);
         assertEquals(1L, response.getTaskId());
@@ -109,9 +109,48 @@ class TaskOrchestrationServiceImplTest {
     void getTaskStatus_taskNotFound_returnsNull() {
         when(aiTaskMapper.selectById(999L)).thenReturn(null);
 
-        TaskStatusResponse response = taskService.getTaskStatus(999L);
+        TaskStatusResponse response = taskService.getTaskStatus(999L, 1L, false);
 
         assertNull(response);
+    }
+
+    /* ═══════════════════════════════════════════════════════════════
+       归属校验（IDOR 修复）—— 原实现只按 taskId 查询，任何登录用户枚举 id
+       即可读取他人任务的 preview2dPath / glb3dPath / errorMessage（已实测）。
+       ═══════════════════════════════════════════════════════════════ */
+
+    @Test
+    @DisplayName("归属校验 - 他人查询我的任务 → null（与「不存在」同响应，不暴露存在性）")
+    void getTaskStatus_otherUser_returnsNull() {
+        when(aiTaskMapper.selectById(1L)).thenReturn(testTask);
+
+        assertNull(taskService.getTaskStatus(1L, 99L, false), "非所有者不得读取他人任务");
+    }
+
+    @Test
+    @DisplayName("归属校验 - 匿名（requesterId 为 null）→ null")
+    void getTaskStatus_anonymous_returnsNull() {
+        when(aiTaskMapper.selectById(1L)).thenReturn(testTask);
+
+        assertNull(taskService.getTaskStatus(1L, null, false));
+    }
+
+    @Test
+    @DisplayName("归属校验 - 管理员可查任意任务")
+    void getTaskStatus_admin_canReadAny() {
+        when(aiTaskMapper.selectById(1L)).thenReturn(testTask);
+
+        assertNotNull(taskService.getTaskStatus(1L, 99L, true));
+    }
+
+    @Test
+    @DisplayName("归属校验 - 越权时不查询资产表（不泄露资产路径）")
+    void getTaskStatus_otherUser_doesNotLoadAsset() {
+        testTask.setStatus("SUCCESS");
+        when(aiTaskMapper.selectById(1L)).thenReturn(testTask);
+
+        assertNull(taskService.getTaskStatus(1L, 99L, false));
+        verify(modelAssetMapper, never()).selectOne(any());
     }
 
     @Test
@@ -128,7 +167,7 @@ class TaskOrchestrationServiceImplTest {
 
         when(modelAssetMapper.selectOne(any())).thenReturn(asset);
 
-        TaskStatusResponse response = taskService.getTaskStatus(1L);
+        TaskStatusResponse response = taskService.getTaskStatus(1L, 1L, false);
 
         assertNotNull(response);
         assertEquals("SUCCESS", response.getStatus());

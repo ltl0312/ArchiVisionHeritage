@@ -9,6 +9,7 @@ import com.zhiguan.gujian.auth.domain.User;
 import com.zhiguan.gujian.shared.security.JwtUtil;
 import com.zhiguan.gujian.auth.application.AuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -46,6 +47,13 @@ public class AuthServiceImpl implements AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         user.setNickname(request.getNickname());
         user.setRole("USER");  // 新注册用户默认为普通用户
-        userMapper.insert(user);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException e) {
+            // 并发注册同名用户时，先查后插之间存在竞态：
+            // 两个请求都通过上面的存在性检查，第二个在 DB 唯一索引上失败。
+            // 原先会冒泡成 500「系统内部错误」，这里转成与"已存在"一致的 400。
+            throw new CulturalApiException(400, "用户名已被注册");
+        }
     }
 }

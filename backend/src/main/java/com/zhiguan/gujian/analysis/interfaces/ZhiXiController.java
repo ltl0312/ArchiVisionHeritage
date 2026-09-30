@@ -26,7 +26,7 @@ public class ZhiXiController {
      * 保留每日5次防刷限制
      */
     @PostMapping("/zhixi")
-    @RateLimit(maxCalls = 5)
+    @RateLimit(maxCalls = 5, key = "zhixi")
     public Result<Map<String, Object>> analyze(@RequestParam("image") MultipartFile image) {
         return Result.ok(analysisService.analyze(image));
     }

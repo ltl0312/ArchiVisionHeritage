@@ -82,7 +82,7 @@ class IntegrationSmokeTest extends BaseTest {
         assertNotNull(taskId);
 
         // 3. 轮询至 SUCCESS（0ms 模拟耗时，10s 兜底超时）
-        TaskStatusResponse status = pollUntilSuccess(taskId);
+        TaskStatusResponse status = pollUntilSuccess(taskId, userId);
         assertNotNull(status, "任务 " + taskId + " 未在 10s 内达到 SUCCESS");
         assertEquals(TaskStatus.SUCCESS, status.getStatus());
         assertNotNull(status.getAssetId(), "SUCCESS 状态应携带 model_asset");
@@ -96,11 +96,11 @@ class IntegrationSmokeTest extends BaseTest {
         assertTrue(hasBrocade, "应产生「数字锦盒」通知，实际: " + notifications);
     }
 
-    private TaskStatusResponse pollUntilSuccess(Long taskId) throws InterruptedException {
+    private TaskStatusResponse pollUntilSuccess(Long taskId, Long requesterId) throws InterruptedException {
         long deadline = System.currentTimeMillis() + 10_000;
         TaskStatusResponse last = null;
         while (System.currentTimeMillis() < deadline) {
-            last = taskOrchestrationService.getTaskStatus(taskId);
+            last = taskOrchestrationService.getTaskStatus(taskId, requesterId, false);
             if (last != null && TaskStatus.SUCCESS.equals(last.getStatus())) {
                 return last;
             }

@@ -35,14 +35,22 @@ public class RateLimitAspect {
     private final RedisTemplate<String, Object> redisTemplate;
     private final DefaultRedisScript<Long> rateLimitScript;
 
-    private static final String KEY_PREFIX = "rate:zhixi";
+    private static final String KEY_PREFIX = "rate";
+
+    /** 默认超限文案（古建智析的"算力节制"叙事） */
+    private static String defaultMessage(int maxCalls) {
+        return "古建高精几何解析犹如匠人雕琢，需耗费大量云端算力。"
+                + "出于对资源的敬畏与合理配置，平台对单用户实行每日最多 "
+                + maxCalls + " 次的解析节制。今日额度已用完，请明日再试。";
+    }
 
     @Around("@annotation(rateLimit)")
     public Object checkRateLimit(ProceedingJoinPoint joinPoint, RateLimit rateLimit) throws Throwable {
         // 获取当前用户 ID（未登录用户以 IP 区分）
         String userIdentifier = getCurrentUserIdentifier();
         String today = LocalDate.now().toString();
-        String key = KEY_PREFIX + ":" + userIdentifier + ":" + today;
+        // key 按接口区分：否则不同接口会共用同一个计数器
+        String key = KEY_PREFIX + ":" + rateLimit.key() + ":" + userIdentifier + ":" + today;
 
         long ttlSeconds = ChronoUnit.SECONDS.between(
                 java.time.LocalDateTime.now(),
@@ -59,11 +67,12 @@ public class RateLimitAspect {
         );
 
         if (allowed == null || allowed == 0L) {
-            log.info("限流拦截 — 用户 {} 今日 VGGT 调用次数已用完", userIdentifier);
-            throw new CulturalApiException(
-                    "古建高精几何解析犹如匠人雕琢，需耗费大量云端算力。" +
-                    "出于对资源的敬畏与合理配置，平台对单用户实行每日最多 " +
-                    rateLimit.maxCalls() + " 次的解析节制。今日额度已用完，请明日再试。");
+            log.info("限流拦截 — [{}] 用户 {} 今日调用次数已用完", rateLimit.key(), userIdentifier);
+            String message = rateLimit.message().isEmpty()
+                    ? defaultMessage(rateLimit.maxCalls())
+                    : rateLimit.message();
+            // 单参构造 → code 固定为 429
+            throw new CulturalApiException(message);
         }
 
         return joinPoint.proceed();

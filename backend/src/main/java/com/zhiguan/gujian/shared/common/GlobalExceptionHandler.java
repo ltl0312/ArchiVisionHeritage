@@ -9,6 +9,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
 
@@ -52,6 +53,20 @@ public class GlobalExceptionHandler {
         log.warn("上传文件超出大小限制: {}", e.getMessage());
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
                 .body(Result.fail(413, "文件大小不能超过 5MB"));
+    }
+
+    /**
+     * 静态资源不存在 → 404（原先落到兜底的 Exception 处理器，被报成 500）。
+     *
+     * 触发场景：`/assets/**` 指向磁盘上的上传目录，请求一个不存在的文件时
+     * Spring 会抛 NoResourceFoundException。500 会误导成"服务端故障"，
+     * 且前端无法据此判断是"资源确实没有"还是"后端出错"。
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Result<Void>> handleNoResourceFound(NoResourceFoundException e) {
+        log.debug("静态资源不存在: {}", e.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(Result.fail(404, "资源不存在"));
     }
 
     @ExceptionHandler(Exception.class)

@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 @Configuration
 @EnableAsync
@@ -23,6 +24,17 @@ public class AsyncConfig {
         executor.setMaxPoolSize(maxPoolSize);
         executor.setQueueCapacity(queueCapacity);
         executor.setThreadNamePrefix(namePrefix);
+
+        // 拒绝策略：默认 AbortPolicy 会在队列满时直接抛 TaskRejectedException，
+        // 而该异常抛在 TaskOrchestrationServiceImpl 的 afterCommit 回调里 ——
+        // 事务已提交、任务已入库，却永远停在 PENDING，且幂等锁 10 分钟内不会释放。
+        // CallerRunsPolicy 改为由提交线程执行，任务至少能被处理（背压而非丢弃）。
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+
+        // 优雅停机：让在途的幻筑任务跑完，避免重启时任务被硬中断而停在 RUNNING。
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
+
         executor.initialize();
         return executor;
     }

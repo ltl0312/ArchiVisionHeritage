@@ -1,6 +1,8 @@
 package com.zhiguan.gujian.shared.config;
 
 import com.zhiguan.gujian.shared.security.JwtAuthenticationFilter;
+import com.zhiguan.gujian.shared.security.RestAccessDeniedHandler;
+import com.zhiguan.gujian.shared.security.RestAuthenticationEntryPoint;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,6 +24,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   /api/v1/admin/**           → 仅 ADMIN 角色可访问
  *   /api/v1/analysis/zhixi/**  → 公开（古建智析演示）
  *   其余所有 API                → 需登录认证
+ *
+ * 异常响应：显式配置 EntryPoint(401) 与 AccessDeniedHandler(403)，
+ * 使"未登录/过期"返回 **401**（前端据此跳登录）、"已登录但无权限"返回 403，
+ * 且两者 body 都符合 `{code,message,data}` 契约（原先 403 无 body，且过期 token 返回 403）。
  */
 @Configuration
 @EnableWebSecurity
@@ -30,12 +36,17 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+    private final RestAccessDeniedHandler restAccessDeniedHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
             .csrf(csrf -> csrf.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(restAuthenticationEntryPoint)
+                .accessDeniedHandler(restAccessDeniedHandler))
             .authorizeHttpRequests(auth -> auth
                 // Actuator 健康检查 + Prometheus 指标（内网监控用）
                 .requestMatchers("/actuator/**").permitAll()

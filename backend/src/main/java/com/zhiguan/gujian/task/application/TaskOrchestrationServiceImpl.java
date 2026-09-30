@@ -108,9 +108,17 @@ public class TaskOrchestrationServiceImpl implements TaskOrchestrationService {
      * 当状态为 SUCCESS 时一并返回关联的 model_asset 信息（封面图 + GLB 路径）
      */
     @Override
-    public TaskStatusResponse getTaskStatus(Long taskId) {
+    public TaskStatusResponse getTaskStatus(Long taskId, Long requesterId, boolean isAdmin) {
         AiTask task = aiTaskMapper.selectById(taskId);
         if (task == null) return null;
+
+        // 归属校验（IDOR 修复）：非管理员只能查自己的任务。
+        // 返回 null 而不是 403 —— 与"任务不存在"同一响应，避免暴露 id 的存在性。
+        if (!isAdmin && (requesterId == null || !requesterId.equals(task.getUserId()))) {
+            log.warn("越权查询任务状态被拒 — taskId={}, requesterId={}, ownerId={}",
+                    taskId, requesterId, task.getUserId());
+            return null;
+        }
 
         TaskStatusResponse.TaskStatusResponseBuilder builder = TaskStatusResponse.builder()
                 .taskId(task.getId())
