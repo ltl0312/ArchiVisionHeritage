@@ -14,6 +14,10 @@ release-new/
 .workbuddy/shots/
 .workbuddy/shots-*/
 
+# 集成测试的资产输出目录（application-test.yml 的 zhiguan.assets.local-path）
+# 幻筑任务现在会真实落盘占位封面与 GLB，故该目录必然产生文件
+backend/test-assets/
+
 #========== 脚本===========
 # *.py
 _pycache/
