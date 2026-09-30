@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="智观·古建">
+  <!-- 玄墨底 + 金线殿宇（与 V4 设计体系的品牌印记一致） -->
+  <rect width="32" height="32" rx="8" fill="#0A0A0C"/>
+  <rect x="0.75" y="0.75" width="30.5" height="30.5" rx="7.25" fill="none" stroke="#C9A227" stroke-opacity="0.38"/>
+  <g transform="translate(4.4 4.6) scale(1.29)" fill="none" stroke="#E2C77A"
+     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M2 8L9 2.5L16 8"/>
+    <path d="M4 8.5V15.5H14V8.5"/>
+    <path d="M7.4 15.5V11.6H10.6V15.5"/>
+  </g>
+</svg>
