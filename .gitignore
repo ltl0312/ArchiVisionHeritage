@@ -18,7 +18,11 @@ release-new/
 _pycache/
 *.pyc
 .bat
-api/
+# ⚠️ 必须锚定到仓库根：裸写 `api/` 会在**任意层级**匹配名为 api 的目录，
+#    从而把 frontend/src/api/ 一起忽略。已跟踪的文件不受影响，但后加入的
+#    文件会被静默吞掉（frontend/src/api/upload.js 就这样丢失过，
+#    导致 CI 与任何全新克隆都无法构建前端）。
+/api/
 
 # ========== 环境 & 日志 ==========
 .env.local
