@@ -9,7 +9,7 @@ const routes = [
   {
     path: '/home',
     name: 'Home',
-    component: () => import('@/views/CommunityFeedView.vue'),
+    component: () => import('@/views/CommunitySquareView.vue'),
     meta: { title: '文化社区 - 智观·古建' }
   },
   {
