@@ -6,12 +6,17 @@ import com.zhiguan.gujian.task.domain.TaskStatus;
 import com.zhiguan.gujian.task.domain.event.TaskCompletedEvent;
 import com.zhiguan.gujian.task.infrastructure.AiTaskMapper;
 import com.zhiguan.gujian.task.infrastructure.ModelAssetMapper;
+import com.zhiguan.gujian.shared.util.PlaceholderAssetGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 
 /**
  * 幻筑任务执行服务 — 单事务执行（P0-2 修复）
@@ -52,6 +57,14 @@ public class TaskExecutionService {
     @Value("${zhiguan.task.asset-model-dir:/assets/models}")
     private String assetModelDir;
 
+    /** 资产根目录（磁盘），用于把 URL 路径映射成真实文件路径 */
+    @Value("${zhiguan.assets.local-path:./assets}")
+    private String assetsLocalPath;
+
+    /** URL 前缀，用于从 URL 路径反推磁盘相对路径 */
+    @Value("${zhiguan.assets.url-prefix:/assets}")
+    private String assetsUrlPrefix;
+
     /**
      * 单事务执行幻筑任务：RUNNING 更新 → 模拟生成 → 资产落库 + SUCCESS 更新 → 发布完成事件。
      * 任一异常整体回滚（InterruptedException 已转为 RuntimeException，确保默认回滚策略生效）。
@@ -73,10 +86,18 @@ public class TaskExecutionService {
         simulate();
 
         // --- RUNNING → SUCCESS：资产 + 状态同事务提交 ---
+        String previewUrl = assetPreviewDir + "/huanzhu_" + taskId + "_preview.png";
+        String modelUrl = assetModelDir + "/huanzhu_" + taskId + "_model.glb";
+
+        // 先落盘、再写库。顺序很关键：若写盘失败就抛异常让事务回滚，
+        // 绝不会留下"库里记着路径、磁盘上却没有文件"的不一致
+        // （原实现只写库不落盘，导致幻筑封面与模型必然取不到）。
+        writePlaceholderAssets(previewUrl, modelUrl);
+
         ModelAsset asset = new ModelAsset();
         asset.setTaskId(taskId);
-        asset.setPreview2dPath(assetPreviewDir + "/huanzhu_" + taskId + "_preview.png");
-        asset.setGlb3dPath(assetModelDir + "/huanzhu_" + taskId + "_model.glb");
+        asset.setPreview2dPath(previewUrl);
+        asset.setGlb3dPath(modelUrl);
         modelAssetMapper.insert(asset);
 
         task.setStatus(TaskStatus.SUCCESS);
@@ -115,5 +136,29 @@ public class TaskExecutionService {
             Thread.currentThread().interrupt();
             throw new RuntimeException("模拟 AI 3D 生成被中断", e);
         }
+    }
+
+    /**
+     * 生成占位资产文件。
+     *
+     * 模拟流程不产出真实资产，但 DB 里必须记录**确实存在**的文件路径，
+     * 否则前端封面与三维查看器必然失败。真实 AI 3D 接入时应替换此处。
+     */
+    private void writePlaceholderAssets(String previewUrl, String modelUrl) {
+        try {
+            PlaceholderAssetGenerator.writePlaceholderAssets(toDiskPath(previewUrl), toDiskPath(modelUrl));
+        } catch (IOException e) {
+            // 抛非受检异常 → 事务回滚 → 任务被标记 FAILED，不产生指向空文件的资产记录
+            throw new IllegalStateException("幻筑资产落盘失败: " + e.getMessage(), e);
+        }
+    }
+
+    /** 把 `/assets/xxx/yyy.png` 形式的 URL 路径映射为磁盘路径 */
+    private Path toDiskPath(String url) {
+        String relative = url.startsWith(assetsUrlPrefix) ? url.substring(assetsUrlPrefix.length()) : url;
+        if (relative.startsWith("/")) {
+            relative = relative.substring(1);
+        }
+        return Paths.get(assetsLocalPath, relative).toAbsolutePath().normalize();
     }
 }

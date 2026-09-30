@@ -166,17 +166,20 @@ if (taskId) {
 
   if (st?.preview2dPath) {
     const cover = await req('GET', st.preview2dPath, { raw: true })
-    // ⚠️ 已知后端限制（非本次改动引入，也不能在"不改后端"约束下修复）：
-    //    TaskExecutionService 是**模拟**生成，只把 preview2dPath / glb3dPath 写进
-    //    model_asset，从不真正落盘（/app/assets 下只有上传的 covers/）。
-    //    因此这两个路径必然取不到文件。
-    //    本次 nginx 修复（`location ^~ /assets/`）把它的症状从 404 暴露为 500 ——
-    //    因为请求现在会真正抵达后端，而后端抛 NoResourceFoundException。
-    //    前端已用 @error 兜底（显示"封面图未能加载"），故不作为失败项，
-    //    但必须显式记录，避免被误认为"已修好"。
-    check('【已知限制】幻筑封面未落盘 → 取不到（前端 @error 兜底）',
-      cover.status !== 200,
-      `HTTP ${cover.status}；后端仅写入虚构路径，未生成文件`)
+    const bytes = (await cover.arrayBuffer()).byteLength
+    check('幻筑封面可回读（原先只写库不落盘 → 必然取不到）',
+      cover.status === 200 && bytes > 1000,
+      `HTTP ${cover.status} ${bytes}B`)
+  }
+  if (st?.glb3dPath) {
+    const glb = await req('GET', st.glb3dPath, { raw: true })
+    // 注意：body 只能读一次
+    const glbBuf = Buffer.from(await glb.arrayBuffer())
+    check('幻筑 GLB 可回读且是合法 glTF 二进制（magic=glTF）',
+      glb.status === 200 && glbBuf.length >= 20,
+      `HTTP ${glb.status} ${glbBuf.length}B`)
+    const head = glbBuf.subarray(0, 4).toString('ascii')
+    check('GLB 文件头为 "glTF"', head === 'glTF', `head=${head}`)
   }
 
   const notif = await req('GET', '/api/v1/notifications', { token })
@@ -299,6 +302,59 @@ if (target) {
   await req('POST', '/api/v1/interactions/like', {
     token: tokenA, json: { targetId: target.postId, targetType: 'POST' }
   })
+}
+
+/* ─────────── 10. 互动对象校验与评论嵌套 ─────────── */
+console.log('\n── 10. 互动对象校验与评论两级嵌套 ──')
+
+const ghostLike = await req('POST', '/api/v1/interactions/like', {
+  token, json: { targetId: 99999999, targetType: 'POST' }
+})
+check('给不存在的帖子点赞 → 404（原先 200，产生孤儿记录）',
+  ghostLike.status === 404, `HTTP ${ghostLike.status}`)
+
+const ghostComment = await req('POST', '/api/v1/posts/99999999/comments', {
+  token, json: { content: '孤儿评论' }
+})
+check('给不存在的帖子评论 → 404（原先 500）', ghostComment.status === 404, `HTTP ${ghostComment.status}`)
+
+// 造一条已发布帖 + 评论 + 回复，验证两级嵌套
+const nestTitle = `评论嵌套 ${stamp}`
+await req('POST', '/api/v1/posts', {
+  token: adminToken, json: { title: nestTitle, content: '嵌套验证', tags: '验证' }
+})
+const nestFeed = await req('GET', '/api/v1/posts?page=1&size=50')
+const nestPost = (nestFeed.body?.data?.records || []).find(p => p.title === nestTitle)
+
+if (nestPost) {
+  const c1 = await req('POST', `/api/v1/posts/${nestPost.postId}/comments`, {
+    token, json: { content: '顶级评论' }
+  })
+  const parentId = c1.body?.data?.id
+  check('发表顶级评论成功', c1.status === 200 && !!parentId, `id=${parentId}`)
+
+  const c2 = await req('POST', `/api/v1/posts/${nestPost.postId}/comments`, {
+    token: adminToken, json: { content: '一条回复', parentId }
+  })
+  check('回复顶级评论成功', c2.status === 200, `HTTP ${c2.status}`)
+
+  const c3 = await req('POST', `/api/v1/posts/${nestPost.postId}/comments`, {
+    token, json: { content: '回复的回复', parentId: c2.body?.data?.id }
+  })
+  check('回复「回复」成功（会被压平到两级）', c3.status === 200, `HTTP ${c3.status}`)
+
+  const badParent = await req('POST', `/api/v1/posts/${nestPost.postId}/comments`, {
+    token, json: { content: '挂错父级', parentId: 99999999 }
+  })
+  check('回复不存在的评论 → 400', badParent.status === 400, `HTTP ${badParent.status}`)
+
+  const detail = await req('GET', `/api/v1/posts/${nestPost.postId}`)
+  const roots = detail.body?.data?.comments || []
+  check('详情返回两级结构：顶级评论带 replies', roots.length === 1 && Array.isArray(roots[0]?.replies),
+    `顶级=${roots.length} replies=${roots[0]?.replies?.length}`)
+  check('「回复的回复」被压平到同一顶级评论下（共 2 条回复）',
+    roots[0]?.replies?.length === 2, `replies=${roots[0]?.replies?.length}`)
+  check('评论响应含 parentId 字段', roots[0] && 'parentId' in roots[0], '')
 }
 
 /* ─────────── 汇总 ─────────── */

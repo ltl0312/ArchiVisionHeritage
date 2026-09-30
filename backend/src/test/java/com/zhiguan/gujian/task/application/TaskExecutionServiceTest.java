@@ -14,7 +14,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.context.ApplicationEventPublisher;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.test.util.ReflectionTestUtils;
+
+import java.nio.file.Path;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -47,6 +50,10 @@ class TaskExecutionServiceTest {
 
     private AiTask testTask;
 
+    /** 占位资产会真正写盘，用临时目录避免污染工作区 */
+    @TempDir
+    Path assetsRoot;
+
     @BeforeEach
     void setUp() {
         // 纯 Mockito 环境不注入 @Value 字段，此处显式赋值；min==max==0 → sleep(0) 立即返回
@@ -54,6 +61,9 @@ class TaskExecutionServiceTest {
         ReflectionTestUtils.setField(taskExecutionService, "simulateMaxMs", 0L);
         ReflectionTestUtils.setField(taskExecutionService, "assetPreviewDir", "/assets/preview");
         ReflectionTestUtils.setField(taskExecutionService, "assetModelDir", "/assets/models");
+        // 资产落盘相关：URL 前缀用于把 /assets/... 反推成磁盘相对路径
+        ReflectionTestUtils.setField(taskExecutionService, "assetsLocalPath", assetsRoot.toString());
+        ReflectionTestUtils.setField(taskExecutionService, "assetsUrlPrefix", "/assets");
 
         testTask = new AiTask();
         testTask.setId(1L);
